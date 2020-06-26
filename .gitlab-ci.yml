@@ -1,0 +1,14 @@
+image: brcloudproject/runtime:latest
+
+variables:
+  DEFAULT_FEATURES: 0 #  specify explicit what to use in each build
+  CC: clang
+  CXX: clang++
+
+test-openmp:
+  variables:
+    USE_OPENMP: 1
+  script:
+    - ./get_deps.sh
+    - ./build_all.sh
+    - ./test_all.sh
