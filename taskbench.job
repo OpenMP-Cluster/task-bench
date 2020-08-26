@@ -1,0 +1,42 @@
+#!/bin/bash
+#SBATCH --job-name=taskbench-job
+#SBATCH --output=taskbench-output.txt
+#SBATCH --nodes 3 
+#SBATCH --cpus-per-task 1
+
+source /etc/bashrc
+module purge
+
+module load mpich-3.3.2-gcc-5.4.0-ctmvcrp
+module load singularity-3.5.3-gcc-5.4.0-lbxi3pt
+
+
+export LD_LIBRARY_PATH=/usr/local/clang/lib:$LD_LIBRARY_PATH
+
+basic_types=(
+    trivial
+    no_comm
+    stencil_1d
+    stencil_1d_periodic
+    dom
+    tree
+    fft
+    nearest
+    "spread -period 2"
+    random_nearest
+)
+extended_types=(
+    "${basic_types[@]}"
+    all_to_all
+)
+
+kernels=("" "$compute_bound" "$memory_bound" "$imbalanced" "$communication_bound")
+
+steps=23
+
+for t in "${basic_types[@]}"; do
+  for k in "${kernels[@]}"; do
+    srun -N 3 -n 3 mpirun -np 3 -host sorgan-gpu1,sorgan-gpu2,sorgan-gpu3 singularity exec docker://ompcluster/runtime:latest ./ompcluster/main -steps $steps -type $t $k -worker 2
+    srun -N 3 -n 3 mpirun -np 3 -host sorgan-gpu1,sorgan-gpu2,sorgan-gpu3 singularity exec docker://ompcluster/runtime:latest ./ompcluster/main -steps $steps -type $t $k -and -steps $steps -type $t $k -worker 2
+  done
+done

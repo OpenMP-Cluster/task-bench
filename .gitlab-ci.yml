@@ -1,4 +1,4 @@
-image: brcloudproject/runtime:latest
+image: ompcluster/runtime:latest
 
 variables:
   DEFAULT_FEATURES: 0 #  specify explicit what to use in each build
@@ -8,6 +8,14 @@ variables:
 test-openmp:
   variables:
     USE_OPENMP: 1
+  script:
+    - ./get_deps.sh
+    - ./build_all.sh
+    - ./test_all.sh
+
+test-openmp-target:
+  variables:
+    USE_OPENMP_TARGET: 1
   script:
     - ./get_deps.sh
     - ./build_all.sh

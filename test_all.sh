@@ -71,6 +71,17 @@ if [[ $USE_MPI_OPENMP -eq 1 ]]; then
     done
 fi
 
+if [[ $USE_OMPCLUSTER -eq 1 ]]; then
+    for t in "${basic_types[@]}"; do
+        for k in "${kernels[@]}"; do
+            mpirun -np 2 ./ompcluster/main -steps $steps -type $t $k 
+            mpirun -np 4 ./ompcluster/main -steps $steps -type $t $k 
+            mpirun -np 3 ./ompcluster/main -steps $steps -type $t $k 
+            mpirun -np 3 ./ompcluster/main -steps $steps -type $t $k -and -steps $steps -type $t $k
+        done
+    done
+fi
+
 if [[ $USE_LEGION -eq 1 ]]; then
     for t in "${extended_types[@]}"; do
         for k in "${kernels[@]}"; do

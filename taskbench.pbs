@@ -1,0 +1,45 @@
+#!/bin/sh
+#PBS -q route 
+#PBS -N mpi-job 
+#PBS -o job-test.out
+#PBS -e job-test.err
+#PBS -V
+#PBS -l select=4:ncpus=1:ngpus=0:Qlist=Compute
+#PBS -l place=scatter
+#PBS -l walltime=1:00:00
+
+
+# program loading and env configuration
+. $HOME/.bashrc
+source /etc/profile.d/modules.sh
+module load mpich/mpich2-1.4.1
+module load singularity/singularity-3.0.3
+
+export LD_LIBRARY_PATH=/usr/local/clang/lib:$LD_LIBRARY_PATH
+
+basic_types=(
+    trivial
+    no_comm
+    stencil_1d
+    stencil_1d_periodic
+    dom
+    tree
+    fft
+    nearest
+    "spread -period 2"
+    random_nearest
+)
+extended_types=(
+    "${basic_types[@]}"
+    all_to_all
+)
+
+kernels=("" "$compute_bound" "$memory_bound" "$imbalanced" "$communication_bound")
+
+steps=23
+
+for t in "${basic_types[@]}"; do
+  for k in "${kernels[@]}"; do
+    mpirun -np 3 -host gn030,gn029,gn031  singularity exec docker://ompcluster/runtime:latest ./ompcluster/main -steps $steps -type $t $k
+  done
+done
