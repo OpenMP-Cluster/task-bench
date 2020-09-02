@@ -15,7 +15,7 @@ test-openmp:
 
 test-openmp-target:
   variables:
-    USE_OPENMP_TARGET: 1
+    USE_OMPCLUSTER: 1
   script:
     - ./get_deps.sh
     - ./build_all.sh
