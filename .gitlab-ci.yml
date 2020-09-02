@@ -5,6 +5,26 @@ variables:
   CC: clang
   CXX: clang++
 
+test-mpi:
+  variables:
+    CC: mpicc
+    CXX: mpicxx
+    TASKBENCH_USE_MPI: 1
+  script:
+    - ./get_deps.sh
+    - ./build_all.sh
+    - ./test_all.sh
+
+test-mpi-openmp:
+  variables:
+    CC: mpicc
+    CXX: mpicxx
+    USE_MPI_OPENMP: 1
+  script:
+    - ./get_deps.sh
+    - ./build_all.sh
+    - ./test_all.sh
+
 test-openmp:
   variables:
     USE_OPENMP: 1
@@ -13,7 +33,7 @@ test-openmp:
     - ./build_all.sh
     - ./test_all.sh
 
-test-openmp-target:
+test-ompcluster:
   variables:
     USE_OMPCLUSTER: 1
   script:
