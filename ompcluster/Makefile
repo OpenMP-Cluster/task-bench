@@ -1,25 +1,25 @@
-DEBUG = 1
+DEBUG ?= 0
 
 ## -fopenmp-targets=x86_64-pc-linux-mpi mpirun -np 2
 ## gdb ./main lldb
 CXXFLAGS = -fopenmp -fopenmp-targets=x86_64-pc-linux-gnu -v
 LDFLAGS  = -fopenmp -fopenmp-targets=x86_64-pc-linux-gnu -v
 
-#ifeq ($(strip $(DEBUG)),1)
-#CXXFLAGS += -g -O0
-#LDFLAGS  += -g -O0
-#else
-#CXXFLAGS += -O3 -march=native
-#LDFLAGS  += -O3 -march=native
-#endif
+ifeq ($(strip $(DEBUG)),1)
+CXXFLAGS += -g -O0
+LDFLAGS  += -g -O0
+else
+CXXFLAGS += -O3
+LDFLAGS  += -O3
+endif
 
 # Include directories
 INC        = -I../core
-INC_EXT    =  
+INC_EXT    =
 
 # Location of the libraries.
 LIB        = -L../core -lcore_s
-LIB_EXT    = 
+LIB_EXT    =
 
 INC := $(INC) $(INC_EXT)
 LIB := $(LIB) $(LIB_EXT)
@@ -28,7 +28,7 @@ CXXFLAGS += $(INC)
 
 include ../core/make_blas.mk
 
-TARGET = main 
+TARGET = main
 all: $(TARGET)
 
 .PRECIOUS: %.cc %.o
@@ -37,7 +37,7 @@ main.o: main.cc ../core/timer.h
 	$(CXX) -c $(CXXFLAGS) $<
 
 main: main.o
-	$(CXX) $^ $(LIB) $(LDFLAGS) -o $@ 
+	$(CXX) $^ $(LIB) $(LDFLAGS) -o $@
 
 clean:
 	rm -f *.o
