@@ -186,35 +186,23 @@ int main(int argc, char ** argv)
           num_args = 0;
           curr_arg_idx = 0;
 
-          //Calculate the number of dependencies of the task in position (y,x)
-          if (deps.size() == 0) {
-            num_args = 1;
-            args[curr_arg_idx].x = x;
-            args[curr_arg_idx].y = y % nb_fields;
-            curr_arg_idx ++;
-          } else {
-            if (y == 0) {
-              num_args = 1;
-              args[curr_arg_idx].x = x;
-              args[curr_arg_idx].y = y % nb_fields;
-              curr_arg_idx ++;
-            } else {
-              num_args = 1;
-              args[curr_arg_idx].x = x;
-              args[curr_arg_idx].y = y % nb_fields;
-              curr_arg_idx ++;
-              long last_offset = graph.offset_at_timestep(y-1);
-              long last_width = graph.width_at_timestep(y-1);
-              for (std::pair<long, long> dep : deps) {
-                num_args += dep.second - dep.first + 1;
-                for (int i = dep.first; i <= dep.second; i++) {
-                  if (i >= last_offset && i < last_offset + last_width) {
-                    args[curr_arg_idx].x = i;
-                    args[curr_arg_idx].y = (y-1) % nb_fields;
-                    curr_arg_idx ++;
-                  } else {
-                    num_args --;
-                  }
+          // Calculate the number of dependencies of the task in position (y,x)
+          num_args = 1;
+          args[curr_arg_idx].x = x;
+          args[curr_arg_idx].y = y % nb_fields;
+          curr_arg_idx++;
+          if (deps.size() != 0 && y != 0) {
+            long last_offset = graph.offset_at_timestep(y - 1);
+            long last_width = graph.width_at_timestep(y - 1);
+            for (std::pair<long, long> dep : deps) {
+              num_args += dep.second - dep.first + 1;
+              for (int i = dep.first; i <= dep.second; i++) {
+                if (i >= last_offset && i < last_offset + last_width) {
+                  args[curr_arg_idx].x = i;
+                  args[curr_arg_idx].y = (y - 1) % nb_fields;
+                  curr_arg_idx++;
+                } else {
+                  num_args--;
                 }
               }
             }
@@ -247,6 +235,9 @@ int main(int argc, char ** argv)
                 char * input_ptrs[num_args];
                 input_ptrs[0] = output_ptr;
                 task_execute(argv_new, argc, graph_idx,x0,y0, num_args, input_ptrs, output_ptr);
+                for (int idx = 0; idx < argc; ++idx) {
+                  free(argv_new[idx]);
+                }
               }
               break;
             }
@@ -274,6 +265,9 @@ int main(int argc, char ** argv)
                 input_ptrs[0] = input_ptr0;
                 // Execute the task
                 task_execute(argv_new, argc, graph_idx,x0,y0, num_args-1, input_ptrs, output_ptr);
+                for (int idx = 0; idx < argc; ++idx) {
+                  free(argv_new[idx]);
+                }
               }
               break;
             }
@@ -305,6 +299,9 @@ int main(int argc, char ** argv)
                 input_ptrs[0] = input_ptr0;
                 input_ptrs[1] = input_ptr1;
                 task_execute(argv_new, argc, graph_idx,x0,y0, num_args-1, input_ptrs, output_ptr);
+                for (int idx = 0; idx < argc; ++idx) {
+                  free(argv_new[idx]);
+                }
               }
               break;
             }
@@ -343,6 +340,9 @@ int main(int argc, char ** argv)
                 input_ptrs[1] = input_ptr1;
                 input_ptrs[2] = input_ptr2;
                 task_execute(argv_new, argc, graph_idx,x0,y0, num_args-1, input_ptrs, output_ptr);
+                for (int idx = 0; idx < argc; ++idx) {
+                  free(argv_new[idx]);
+                }
               }
               break;
             }
@@ -387,6 +387,9 @@ int main(int argc, char ** argv)
                   input_ptrs[2] = input_ptr2;
                   input_ptrs[3] = input_ptr3;
                   task_execute(argv_new, argc, graph_idx,x0,y0, num_args-1, input_ptrs, output_ptr);
+                  for (int idx = 0; idx < argc; ++idx) {
+                    free(argv_new[idx]);
+                  }
                 }
                 break;
               }
@@ -437,6 +440,9 @@ int main(int argc, char ** argv)
                   input_ptrs[3] = input_ptr3;
                   input_ptrs[4] = input_ptr4;
                   task_execute(argv_new, argc, graph_idx,x0,y0, num_args-1, input_ptrs, output_ptr);
+                  for (int idx = 0; idx < argc; ++idx) {
+                    free(argv_new[idx]);
+                  }
                 }
                 break;
               }
@@ -493,6 +499,9 @@ int main(int argc, char ** argv)
                   input_ptrs[4] = input_ptr4;
                   input_ptrs[5] = input_ptr5;
                   task_execute(argv_new, argc, graph_idx,x0,y0, num_args-1, input_ptrs, output_ptr);
+                  for (int idx = 0; idx < argc; ++idx) {
+                    free(argv_new[idx]);
+                  }
                 }
                 break;
               }
@@ -556,6 +565,9 @@ int main(int argc, char ** argv)
                   input_ptrs[5] = input_ptr5;
                   input_ptrs[6] = input_ptr6;
                   task_execute(argv_new, argc, graph_idx,x0,y0, num_args-1, input_ptrs, output_ptr);
+                  for (int idx = 0; idx < argc; ++idx) {
+                    free(argv_new[idx]);
+                  }
                 }
                 break;
               }
@@ -625,6 +637,9 @@ int main(int argc, char ** argv)
                   input_ptrs[6] = input_ptr6;
                   input_ptrs[7] = input_ptr7;
                   task_execute(argv_new, argc, graph_idx,x0,y0, num_args-1, input_ptrs, output_ptr);
+                  for (int idx = 0; idx < argc; ++idx) {
+                    free(argv_new[idx]);
+                  }
                 }
                 break;
               }
@@ -701,6 +716,9 @@ int main(int argc, char ** argv)
                   input_ptrs[7] = input_ptr7;
                   input_ptrs[8] = input_ptr8;
                   task_execute(argv_new, argc, graph_idx,x0,y0, num_args-1, input_ptrs, output_ptr);
+                  for (int idx = 0; idx < argc; ++idx) {
+                    free(argv_new[idx]);
+                  }
                 }
                 break;
               }
