@@ -10,6 +10,7 @@
 #include <string>
 #include <iostream>
 #include <sstream>
+#include <memory>
 
 // Project headers
 #include "core.h"
@@ -49,32 +50,6 @@ struct matrix_t {
 };
  
 /*
-Function to split the command line in each node.
-@param[in] concat_args
-  The concatenated command line used to run the task bank
-@param[in,out] argv_new
-  On entry, an empty array of characters.
-  On exit, a char array containing the arguments, one for each string passed on the command line.
-@param[in] argv_len
-  An integer value that indicates the number of arguments that were passed in the command line.
-*/
-
-void args_separate(char * concat_args, char ** argv_new, 
-                    int argv_len)
-{
-  std::string string1 = std::string(concat_args, argv_len);
-
-  std::string word;
-  std::istringstream iss(string1);
-  int argc_new = 0;
-// by default this splits on any whitespace
-  while(iss >> word) {
-      argv_new[argc_new] = strdup(word.c_str());
-      argc_new++;
-    }
-}
-
-/*
 Function to call the kernel to execute the task.
 @param[in] argv_new
   Char array containing the arguments, one for each string passed on the command line.
@@ -95,34 +70,27 @@ Function to call the kernel to execute the task.
   On exit, the new data of the task (y0,x0), after executing
 */
 
-void task_execute(char**argv_new, int argc, unsigned graph_idx, 
-                  int x0, int y0, int num_args,
+void task_execute(const TaskGraph &graph, int x0, int y0, int num_args,
                   char **input_ptrs, char *output_ptr)
 {
-  // Create the task graph
-  App app_node(argc, argv_new);
-  TaskGraph graph_node = app_node.graphs[graph_idx];
-  
   // Allocate extra memory to run the task
-  size_t scratch_bytes = graph_node.scratch_bytes_per_task;
-  char *scratch_ptr = (char *)malloc(scratch_bytes);
+  size_t scratch_bytes = graph.scratch_bytes_per_task;
+  auto scratch_buf = std::make_unique<char[]>(scratch_bytes);
+  char *scratch_ptr = scratch_buf.get();
   assert(scratch_ptr);
   TaskGraph::prepare_scratch(scratch_ptr, scratch_bytes);
-  size_t output_bytes= graph_node.output_bytes_per_task;
+  size_t output_bytes = graph.output_bytes_per_task;
 
   // Designate the size of the input data to run the task.
   size_t input_bytes[num_args];
-  for (int idx_bytes = 0; idx_bytes < num_args; ++idx_bytes)
-  {
-    input_bytes[idx_bytes] = graph_node.output_bytes_per_task;
+  for (int idx_bytes = 0; idx_bytes < num_args; ++idx_bytes) {
+    input_bytes[idx_bytes] = graph.output_bytes_per_task;
   }
 
-  //Call the core.h function to execute task
-  graph_node.execute_point(y0,x0,output_ptr,output_bytes,
-                          (const char **)input_ptrs,input_bytes,num_args,
-                          scratch_ptr, graph_node.scratch_bytes_per_task);
-
-  free(scratch_ptr);
+  // Call the core.h function to execute task
+  graph.execute_point(y0, x0, output_ptr, output_bytes,
+                      (const char **)input_ptrs, input_bytes, num_args,
+                      scratch_ptr, graph.scratch_bytes_per_task);
 }
 
 int main(int argc, char ** argv)
@@ -144,20 +112,6 @@ int main(int argc, char ** argv)
     }
   }
 
-  // Concatenate the command line
-  int argv_len = 0;
-  for (int arg_idx = 0; arg_idx < argc; ++arg_idx)
-  {
-    argv_len += strlen(argv[arg_idx]) + 1;
-  }
-  char concat_args[argv_len];
-  strcpy (concat_args,argv[0]);
-  for (int arg_idx = 1; arg_idx < argc; ++arg_idx)
-  {
-    strcat(concat_args," ");
-    strcat(concat_args,argv[arg_idx]);
-  }
-
   // Show the information of the task graphs
   new_app.display();
 
@@ -165,7 +119,7 @@ int main(int argc, char ** argv)
 
   // Run the task graph in parallel
   #pragma omp parallel
-  #pragma omp single nowait
+  #pragma omp single
   {
     for (unsigned graph_idx = 0; graph_idx < graphs.size(); graph_idx++) {
       const TaskGraph &graph = graphs[graph_idx];
@@ -225,19 +179,12 @@ int main(int argc, char ** argv)
             {
               #pragma omp target nowait \
                 depend(inout:mat[point0])                     \
-                firstprivate(num_args,argc,argv_len,          \
-                  x0,y0,point0,graph_idx)                     \
-                map(to:concat_args[:argv_len])                \
+                firstprivate(graph,num_args,x0,y0)                     \
                 map(tofrom: output_ptr[:graph.output_bytes_per_task])
               {
-                char * argv_new[argc];
-                args_separate(concat_args,argv_new,argv_len);
                 char * input_ptrs[num_args];
                 input_ptrs[0] = output_ptr;
-                task_execute(argv_new, argc, graph_idx,x0,y0, num_args, input_ptrs, output_ptr);
-                for (int idx = 0; idx < argc; ++idx) {
-                  free(argv_new[idx]);
-                }
+                task_execute(graph,x0,y0, num_args, input_ptrs, output_ptr);
               }
               break;
             }
@@ -252,22 +199,15 @@ int main(int argc, char ** argv)
               #pragma omp target nowait \
                 depend(inout:mat[point0])                     \
                 depend(in: mat[point1])                       \
-                firstprivate(num_args,argc,argv_len,          \
-                  x0,y0,point0,point1)                        \
-                map(to:concat_args[:argv_len],                \
-                     input_ptr0[:graph.output_bytes_per_task])\
+                firstprivate(graph,num_args,x0,y0)                        \
+                map(to:input_ptr0[:graph.output_bytes_per_task])\
                 map(tofrom: output_ptr[:graph.output_bytes_per_task])
               {                  
-                char * argv_new[argc];
-                args_separate(concat_args,argv_new,argv_len);
                 // Join the input data into a single variable
                 char * input_ptrs[num_args-1];
                 input_ptrs[0] = input_ptr0;
                 // Execute the task
-                task_execute(argv_new, argc, graph_idx,x0,y0, num_args-1, input_ptrs, output_ptr);
-                for (int idx = 0; idx < argc; ++idx) {
-                  free(argv_new[idx]);
-                }
+                task_execute(graph,x0,y0, num_args-1, input_ptrs, output_ptr);
               }
               break;
             }
@@ -286,22 +226,15 @@ int main(int argc, char ** argv)
                 depend(inout:mat[point0])                     \
                 depend(in: mat[point1])                       \
                 depend(in: mat[point2])                       \
-                firstprivate(num_args,argc,argv_len,          \
-                  x0,y0,point0,point1,point2)                 \
-                map(to:concat_args[:argv_len],                \
-                       input_ptr0[:graph.output_bytes_per_task],\
+                firstprivate(graph,num_args,x0,y0)                 \
+                map(to:input_ptr0[:graph.output_bytes_per_task],\
                        input_ptr1[:graph.output_bytes_per_task])\
                 map(tofrom: output_ptr[:graph.output_bytes_per_task])
               {                  
-                char * argv_new[argc];
-                args_separate(concat_args,argv_new,argv_len);
                 char * input_ptrs[num_args-1];
                 input_ptrs[0] = input_ptr0;
                 input_ptrs[1] = input_ptr1;
-                task_execute(argv_new, argc, graph_idx,x0,y0, num_args-1, input_ptrs, output_ptr);
-                for (int idx = 0; idx < argc; ++idx) {
-                  free(argv_new[idx]);
-                }
+                task_execute(graph,x0,y0, num_args-1, input_ptrs, output_ptr);
               }
               break;
             }
@@ -324,25 +257,17 @@ int main(int argc, char ** argv)
                 depend(in: mat[point1])                       \
                 depend(in: mat[point2])                       \
                 depend(in: mat[point3])                       \
-                firstprivate(num_args,argc,argv_len,          \
-                  x0,y0,point0,point1,point2,                 \
-                  point3)                                     \
-                map(to:concat_args[:argv_len],                \
-                       input_ptr0[:graph.output_bytes_per_task],\
+                firstprivate(graph,num_args,x0,y0)                                     \
+                map(to:input_ptr0[:graph.output_bytes_per_task],\
                        input_ptr1[:graph.output_bytes_per_task],\
                        input_ptr2[:graph.output_bytes_per_task])\
                 map(tofrom: output_ptr[:graph.output_bytes_per_task])
               {                  
-                char * argv_new[argc];
-                args_separate(concat_args,argv_new,argv_len);
                 char * input_ptrs[num_args-1];
                 input_ptrs[0] = input_ptr0;
                 input_ptrs[1] = input_ptr1;
                 input_ptrs[2] = input_ptr2;
-                task_execute(argv_new, argc, graph_idx,x0,y0, num_args-1, input_ptrs, output_ptr);
-                for (int idx = 0; idx < argc; ++idx) {
-                  free(argv_new[idx]);
-                }
+                task_execute(graph,x0,y0, num_args-1, input_ptrs, output_ptr);
               }
               break;
             }
@@ -369,27 +294,19 @@ int main(int argc, char ** argv)
                   depend(in: mat[point2])                       \
                   depend(in: mat[point3])                       \
                   depend(in: mat[point4])                       \
-                  firstprivate(num_args,argc,argv_len,          \
-                    x0,y0,point0,point1,point2,                 \
-                    point3,point4)                              \
-                  map(to:concat_args[:argv_len],                \
-                         input_ptr0[:graph.output_bytes_per_task],\
+                  firstprivate(graph,num_args,x0,y0)                              \
+                  map(to:input_ptr0[:graph.output_bytes_per_task],\
                          input_ptr1[:graph.output_bytes_per_task],\
                          input_ptr2[:graph.output_bytes_per_task],\
                          input_ptr3[:graph.output_bytes_per_task])\
                   map(tofrom: output_ptr[:graph.output_bytes_per_task])
                 {                  
-                  char * argv_new[argc];
-                  args_separate(concat_args,argv_new,argv_len);
                   char * input_ptrs[num_args-1];
                   input_ptrs[0] = input_ptr0;
                   input_ptrs[1] = input_ptr1;
                   input_ptrs[2] = input_ptr2;
                   input_ptrs[3] = input_ptr3;
-                  task_execute(argv_new, argc, graph_idx,x0,y0, num_args-1, input_ptrs, output_ptr);
-                  for (int idx = 0; idx < argc; ++idx) {
-                    free(argv_new[idx]);
-                  }
+                  task_execute(graph,x0,y0, num_args-1, input_ptrs, output_ptr);
                 }
                 break;
               }
@@ -420,29 +337,21 @@ int main(int argc, char ** argv)
                   depend(in: mat[point3])                       \
                   depend(in: mat[point4])                       \
                   depend(in: mat[point5])                       \
-                  firstprivate(num_args,argc,argv_len,          \
-                    x0,y0,point0,point1,point2,                 \
-                    point3,point4,point5)                       \
-                  map(to:concat_args[:argv_len],                \
-                         input_ptr0[:graph.output_bytes_per_task],\
+                  firstprivate(graph,num_args,x0,y0)                       \
+                  map(to:input_ptr0[:graph.output_bytes_per_task],\
                          input_ptr1[:graph.output_bytes_per_task],\
                          input_ptr2[:graph.output_bytes_per_task],\
                          input_ptr3[:graph.output_bytes_per_task],\
                          input_ptr4[:graph.output_bytes_per_task])\
                   map(tofrom: output_ptr[:graph.output_bytes_per_task])
                 {                  
-                  char * argv_new[argc];
-                  args_separate(concat_args,argv_new,argv_len);
                   char * input_ptrs[num_args-1];
                   input_ptrs[0] = input_ptr0;
                   input_ptrs[1] = input_ptr1;
                   input_ptrs[2] = input_ptr2;
                   input_ptrs[3] = input_ptr3;
                   input_ptrs[4] = input_ptr4;
-                  task_execute(argv_new, argc, graph_idx,x0,y0, num_args-1, input_ptrs, output_ptr);
-                  for (int idx = 0; idx < argc; ++idx) {
-                    free(argv_new[idx]);
-                  }
+                  task_execute(graph,x0,y0, num_args-1, input_ptrs, output_ptr);
                 }
                 break;
               }
@@ -477,11 +386,8 @@ int main(int argc, char ** argv)
                   depend(in: mat[point4])                       \
                   depend(in: mat[point5])                       \
                   depend(in: mat[point6])                       \
-                  firstprivate(num_args,argc,argv_len,          \
-                    x0,y0,point0,point1,point2,                 \
-                    point3,point4,point5,point6)                \
-                  map(to:concat_args[:argv_len],                \
-                         input_ptr0[:graph.output_bytes_per_task],\
+                  firstprivate(graph,num_args,x0,y0)                \
+                  map(to:input_ptr0[:graph.output_bytes_per_task],\
                          input_ptr1[:graph.output_bytes_per_task],\
                          input_ptr2[:graph.output_bytes_per_task],\
                          input_ptr3[:graph.output_bytes_per_task],\
@@ -489,8 +395,6 @@ int main(int argc, char ** argv)
                          input_ptr5[:graph.output_bytes_per_task])\
                   map(tofrom: output_ptr[:graph.output_bytes_per_task])
                 {                  
-                  char * argv_new[argc];
-                  args_separate(concat_args,argv_new,argv_len);
                   char * input_ptrs[num_args-1];
                   input_ptrs[0] = input_ptr0;
                   input_ptrs[1] = input_ptr1;
@@ -498,10 +402,7 @@ int main(int argc, char ** argv)
                   input_ptrs[3] = input_ptr3;
                   input_ptrs[4] = input_ptr4;
                   input_ptrs[5] = input_ptr5;
-                  task_execute(argv_new, argc, graph_idx,x0,y0, num_args-1, input_ptrs, output_ptr);
-                  for (int idx = 0; idx < argc; ++idx) {
-                    free(argv_new[idx]);
-                  }
+                  task_execute(graph,x0,y0, num_args-1, input_ptrs, output_ptr);
                 }
                 break;
               }
@@ -540,12 +441,8 @@ int main(int argc, char ** argv)
                   depend(in: mat[point5])                       \
                   depend(in: mat[point6])                       \
                   depend(in: mat[point7])                       \
-                  firstprivate(num_args,argc,argv_len,          \
-                    x0,y0,point0,point1,point2,                 \
-                    point3,point4,point5,point6,                \
-                    point7)                                     \
-                  map(to:concat_args[:argv_len],                \
-                         input_ptr0[:graph.output_bytes_per_task],\
+                  firstprivate(graph,num_args,x0,y0)                                     \
+                  map(to:input_ptr0[:graph.output_bytes_per_task],\
                          input_ptr1[:graph.output_bytes_per_task],\
                          input_ptr2[:graph.output_bytes_per_task],\
                          input_ptr3[:graph.output_bytes_per_task],\
@@ -554,8 +451,6 @@ int main(int argc, char ** argv)
                          input_ptr6[:graph.output_bytes_per_task])\
                   map(tofrom: output_ptr[:graph.output_bytes_per_task])
                 {                  
-                  char * argv_new[argc];
-                  args_separate(concat_args,argv_new,argv_len);
                   char * input_ptrs[num_args-1];
                   input_ptrs[0] = input_ptr0;
                   input_ptrs[1] = input_ptr1;
@@ -564,10 +459,7 @@ int main(int argc, char ** argv)
                   input_ptrs[4] = input_ptr4;
                   input_ptrs[5] = input_ptr5;
                   input_ptrs[6] = input_ptr6;
-                  task_execute(argv_new, argc, graph_idx,x0,y0, num_args-1, input_ptrs, output_ptr);
-                  for (int idx = 0; idx < argc; ++idx) {
-                    free(argv_new[idx]);
-                  }
+                  task_execute(graph,x0,y0, num_args-1, input_ptrs, output_ptr);
                 }
                 break;
               }
@@ -610,12 +502,8 @@ int main(int argc, char ** argv)
                   depend(in: mat[point6])                       \
                   depend(in: mat[point7])                       \
                   depend(in: mat[point8])                       \
-                  firstprivate(num_args,argc,argv_len,          \
-                    x0,y0,point0,point1,point2,                 \
-                    point3,point4,point5,point6,                \
-                    point7,point8)                              \
-                  map(to:concat_args[:argv_len],                \
-                         input_ptr0[:graph.output_bytes_per_task],\
+                  firstprivate(graph,num_args,x0,y0)                              \
+                  map(to:input_ptr0[:graph.output_bytes_per_task],\
                          input_ptr1[:graph.output_bytes_per_task],\
                          input_ptr2[:graph.output_bytes_per_task],\
                          input_ptr3[:graph.output_bytes_per_task],\
@@ -625,8 +513,6 @@ int main(int argc, char ** argv)
                          input_ptr7[:graph.output_bytes_per_task])\
                   map(tofrom: output_ptr[:graph.output_bytes_per_task])
                 {                  
-                  char * argv_new[argc];
-                  args_separate(concat_args,argv_new,argv_len);
                   char * input_ptrs[num_args-1];
                   input_ptrs[0] = input_ptr0;
                   input_ptrs[1] = input_ptr1;
@@ -636,10 +522,7 @@ int main(int argc, char ** argv)
                   input_ptrs[5] = input_ptr5;
                   input_ptrs[6] = input_ptr6;
                   input_ptrs[7] = input_ptr7;
-                  task_execute(argv_new, argc, graph_idx,x0,y0, num_args-1, input_ptrs, output_ptr);
-                  for (int idx = 0; idx < argc; ++idx) {
-                    free(argv_new[idx]);
-                  }
+                  task_execute(graph,x0,y0, num_args-1, input_ptrs, output_ptr);
                 }
                 break;
               }
@@ -675,7 +558,6 @@ int main(int argc, char ** argv)
                 char *input_ptr7 = (char*)tile_in8->output_buff;
                 char *input_ptr8 = (char*)tile_in9->output_buff;
 
-
                 #pragma omp target nowait \
                   depend(inout:mat[point0])                     \
                   depend(in: mat[point1])                       \
@@ -687,12 +569,8 @@ int main(int argc, char ** argv)
                   depend(in: mat[point7])                       \
                   depend(in: mat[point8])                       \
                   depend(in: mat[point9])                       \
-                  firstprivate(num_args,argc,argv_len,          \
-                    x0,y0,point0,point1,point2,                 \
-                    point3,point4,point5,point6,                \
-                    point7,point8,point9)                       \
-                  map(to:concat_args[:argv_len],                \
-                         input_ptr0[:graph.output_bytes_per_task],\
+                  firstprivate(graph,num_args,x0,y0)                       \
+                  map(to:input_ptr0[:graph.output_bytes_per_task],\
                          input_ptr1[:graph.output_bytes_per_task],\
                          input_ptr2[:graph.output_bytes_per_task],\
                          input_ptr3[:graph.output_bytes_per_task],\
@@ -703,8 +581,6 @@ int main(int argc, char ** argv)
                          input_ptr8[:graph.output_bytes_per_task])\
                   map(tofrom: output_ptr[:graph.output_bytes_per_task])
                 {                  
-                  char * argv_new[argc];
-                  args_separate(concat_args,argv_new,argv_len);
                   char * input_ptrs[num_args-1];
                   input_ptrs[0] = input_ptr0;
                   input_ptrs[1] = input_ptr1;
@@ -715,18 +591,15 @@ int main(int argc, char ** argv)
                   input_ptrs[6] = input_ptr6;
                   input_ptrs[7] = input_ptr7;
                   input_ptrs[8] = input_ptr8;
-                  task_execute(argv_new, argc, graph_idx,x0,y0, num_args-1, input_ptrs, output_ptr);
-                  for (int idx = 0; idx < argc; ++idx) {
-                    free(argv_new[idx]);
-                  }
+                  task_execute(graph,x0,y0, num_args-1, input_ptrs, output_ptr);
                 }
                 break;
               }
               default:
                 assert(false && "unexpected num_args");
             }
-          }
         }
+      }
     }
   }
 
