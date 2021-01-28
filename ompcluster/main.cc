@@ -119,7 +119,7 @@ int main(int argc, char ** argv)
 
   // Run the task graph in parallel
   #pragma omp parallel
-  #pragma omp single
+  #pragma omp master
   {
     for (unsigned graph_idx = 0; graph_idx < graphs.size(); graph_idx++) {
       const TaskGraph &graph = graphs[graph_idx];
