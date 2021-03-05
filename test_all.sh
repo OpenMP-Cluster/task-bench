@@ -12,13 +12,13 @@ source deps/env.sh
 
 basic_types=(
     trivial
-    no_comm
     stencil_1d
     stencil_1d_periodic
     dom
     tree
     fft
     nearest
+    no_comm
     "spread -period 2"
     random_nearest
 )

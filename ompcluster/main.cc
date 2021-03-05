@@ -122,10 +122,25 @@ int main(int argc, char ** argv)
 
   #pragma omp target enter data map(to: graphs_array[:graphs.size()])
 
-  // Run the task graph in parallel
+  for (size_t i = 0; i < graphs.size(); i++)
+  {
+    size_t graph_out = graphs[i].output_bytes_per_task;
+    tile_t *mat = matrix[i].data;
+    int number_point= matrix[i].M * matrix[i].N;
+    for (size_t i = 0; i < number_point; i++)
+    {
+      tile_t *tile_in = &mat[i];
+      char *output_ptr = (char*)tile_in->output_buff;
+      #pragma omp target enter data \
+          map(to:output_ptr[0:graph_out])
+    }
+  }   
+
+
   #pragma omp parallel
   #pragma omp single
   {
+  // Run the task graph in parallel
     for (unsigned graph_idx = 0; graph_idx < graphs.size(); graph_idx++) {
       const TaskGraph &graph = graphs[graph_idx];
       tile_t *mat = matrix[graph_idx].data;
@@ -185,12 +200,10 @@ int main(int argc, char ** argv)
             {
               #pragma omp target nowait \
                 depend(inout:mat[point0])                     \
-                firstprivate(graph_idx, num_args,x0,y0,graph_out)    \
-                map(tofrom: output_ptr[:graph_out])
+                firstprivate(graph,num_args,x0,y0)            
               {
                 char * input_ptrs[num_args];
                 input_ptrs[0] = output_ptr;
-                TaskGraph graph = graphs_array[graph_idx];
                 task_execute(graph,x0,y0, num_args, input_ptrs, output_ptr);
               }
               break;
@@ -206,9 +219,7 @@ int main(int argc, char ** argv)
               #pragma omp target nowait \
                 depend(inout:mat[point0])                     \
                 depend(in: mat[point1])                       \
-                firstprivate(graph_idx,num_args,x0,y0,graph_out)            \
-                map(to:input_ptr0[:graph_out])\
-                map(tofrom: output_ptr[:graph_out])
+                firstprivate(graph_idx,num_args,x0,y0)
               {            
                 // Join the input data into a single variable
                 char * input_ptrs[num_args-1];
@@ -234,10 +245,7 @@ int main(int argc, char ** argv)
                 depend(inout:mat[point0])                     \
                 depend(in: mat[point1])                       \
                 depend(in: mat[point2])                       \
-                firstprivate(graph_idx,num_args,x0,y0,graph_out)    \
-                map(to:input_ptr0[:graph_out],\
-                       input_ptr1[:graph_out])\
-                map(tofrom: output_ptr[:graph_out])
+                firstprivate(graph_idx,num_args,x0,y0)
               {             
                 char * input_ptrs[num_args-1];
                 input_ptrs[0] = input_ptr0;
@@ -266,11 +274,7 @@ int main(int argc, char ** argv)
                 depend(in: mat[point1])                       \
                 depend(in: mat[point2])                       \
                 depend(in: mat[point3])                       \
-                firstprivate(graph_idx,num_args,x0,y0,graph_out)           \
-                map(to:input_ptr0[:graph_out],\
-                       input_ptr1[:graph_out],\
-                       input_ptr2[:graph_out])\
-                map(tofrom: output_ptr[:graph_out])
+                firstprivate(graph_idx,num_args,x0,y0)
               {             
                 char * input_ptrs[num_args-1];
                 input_ptrs[0] = input_ptr0;
@@ -304,12 +308,7 @@ int main(int argc, char ** argv)
                   depend(in: mat[point2])                       \
                   depend(in: mat[point3])                       \
                   depend(in: mat[point4])                       \
-                  firstprivate(graph_idx,num_args,x0,y0,graph_out)                              \
-                  map(to:input_ptr0[:graph_out],\
-                         input_ptr1[:graph_out],\
-                         input_ptr2[:graph_out],\
-                         input_ptr3[:graph_out])\
-                  map(tofrom: output_ptr[:graph_out])
+                  firstprivate(graph_idx,num_args,x0,y0)
                 {
                   char * input_ptrs[num_args-1];
                   input_ptrs[0] = input_ptr0;
@@ -348,13 +347,7 @@ int main(int argc, char ** argv)
                   depend(in: mat[point3])                       \
                   depend(in: mat[point4])                       \
                   depend(in: mat[point5])                       \
-                  firstprivate(graph_idx,num_args,x0,y0,graph_out)      \
-                  map(to:input_ptr0[:graph_out],\
-                         input_ptr1[:graph_out],\
-                         input_ptr2[:graph_out],\
-                         input_ptr3[:graph_out],\
-                         input_ptr4[:graph_out])\
-                  map(tofrom: output_ptr[:graph_out])
+                  firstprivate(graph_idx,num_args,x0,y0)
                 {          
                   char * input_ptrs[num_args-1];
                   input_ptrs[0] = input_ptr0;
@@ -398,14 +391,7 @@ int main(int argc, char ** argv)
                   depend(in: mat[point4])                       \
                   depend(in: mat[point5])                       \
                   depend(in: mat[point6])                       \
-                  firstprivate(graph_idx,num_args,x0,y0,graph_out)          \
-                  map(to:input_ptr0[:graph_out],\
-                         input_ptr1[:graph_out],\
-                         input_ptr2[:graph_out],\
-                         input_ptr3[:graph_out],\
-                         input_ptr4[:graph_out],\
-                         input_ptr5[:graph_out])\
-                  map(tofrom: output_ptr[:graph_out])
+                  firstprivate(graph_idx,num_args,x0,y0)
                 {             
                   char * input_ptrs[num_args-1];
                   input_ptrs[0] = input_ptr0;
@@ -454,15 +440,7 @@ int main(int argc, char ** argv)
                   depend(in: mat[point5])                       \
                   depend(in: mat[point6])                       \
                   depend(in: mat[point7])                       \
-                  firstprivate(graph_idx,num_args,x0,y0,graph_out)                                     \
-                  map(to:input_ptr0[:graph_out],\
-                         input_ptr1[:graph_out],\
-                         input_ptr2[:graph_out],\
-                         input_ptr3[:graph_out],\
-                         input_ptr4[:graph_out],\
-                         input_ptr5[:graph_out],\
-                         input_ptr6[:graph_out])\
-                  map(tofrom: output_ptr[:graph_out])
+                  firstprivate(graph_idx,num_args,x0,y0)
                 {             
                   char * input_ptrs[num_args-1];
                   input_ptrs[0] = input_ptr0;
@@ -516,16 +494,7 @@ int main(int argc, char ** argv)
                   depend(in: mat[point6])                       \
                   depend(in: mat[point7])                       \
                   depend(in: mat[point8])                       \
-                  firstprivate(graph_idx,num_args,x0,y0,graph_out)                              \
-                  map(to:input_ptr0[:graph_out],\
-                         input_ptr1[:graph_out],\
-                         input_ptr2[:graph_out],\
-                         input_ptr3[:graph_out],\
-                         input_ptr4[:graph_out],\
-                         input_ptr5[:graph_out],\
-                         input_ptr6[:graph_out],\
-                         input_ptr7[:graph_out])\
-                  map(tofrom: output_ptr[:graph_out])
+                  firstprivate(graph_idx,num_args,x0,y0)
                 {              
                   char * input_ptrs[num_args-1];
                   input_ptrs[0] = input_ptr0;
@@ -584,17 +553,7 @@ int main(int argc, char ** argv)
                   depend(in: mat[point7])                       \
                   depend(in: mat[point8])                       \
                   depend(in: mat[point9])                       \
-                  firstprivate(graph_idx,num_args,x0,y0,graph_out)     \
-                  map(to:input_ptr0[:graph_out],\
-                         input_ptr1[:graph_out],\
-                         input_ptr2[:graph_out],\
-                         input_ptr3[:graph_out],\
-                         input_ptr4[:graph_out],\
-                         input_ptr5[:graph_out],\
-                         input_ptr6[:graph_out],\
-                         input_ptr7[:graph_out],\
-                         input_ptr8[:graph_out])\
-                  map(tofrom: output_ptr[:graph_out])
+                  firstprivate(graph_idx,num_args,x0,y0)
                 {           
                   char * input_ptrs[num_args-1];
                   input_ptrs[0] = input_ptr0;
@@ -618,6 +577,23 @@ int main(int argc, char ** argv)
       }
     }
   }
+
+  for (size_t i = 0; i < graphs.size(); i++)
+  {
+    size_t graph_out = graphs[i].output_bytes_per_task;
+    tile_t *mat = matrix[i].data;
+    int number_point= matrix[i].M * matrix[i].N;
+    for (size_t i = 0; i < number_point; i++)
+    {
+      tile_t *tile_in = &mat[i];
+      char *output_ptr = (char*)tile_in->output_buff;
+      #pragma omp target exit data \
+          map(delete:output_ptr[0:graph_out])
+    }
+  } 
+  
+
+  #pragma omp target exit data map(delete: graphs_array[:graphs.size()])
 
   double end = omp_get_wtime();
   double elapsed = end -start;
