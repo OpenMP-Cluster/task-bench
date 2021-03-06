@@ -136,7 +136,6 @@ int main(int argc, char ** argv)
     }
   }   
 
-
   #pragma omp parallel
   #pragma omp single
   {
@@ -202,6 +201,7 @@ int main(int argc, char ** argv)
                 depend(inout:mat[point0])                     \
                 firstprivate(graph,num_args,x0,y0)            
               {
+                
                 char * input_ptrs[num_args];
                 input_ptrs[0] = output_ptr;
                 task_execute(graph,x0,y0, num_args, input_ptrs, output_ptr);
