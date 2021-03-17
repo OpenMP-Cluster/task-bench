@@ -199,11 +199,12 @@ int main(int argc, char ** argv)
             {
               #pragma omp target nowait \
                 depend(inout:mat[point0])                     \
-                firstprivate(graph,num_args,x0,y0)            
+                depend(inout:*output_ptr)                      \
+                firstprivate(graph_idx,num_args,x0,y0)            
               {
-                
                 char * input_ptrs[num_args];
                 input_ptrs[0] = output_ptr;
+                TaskGraph graph= graphs_array[graph_idx];
                 task_execute(graph,x0,y0, num_args, input_ptrs, output_ptr);
               }
               break;
@@ -219,6 +220,7 @@ int main(int argc, char ** argv)
               #pragma omp target nowait \
                 depend(inout:mat[point0])                     \
                 depend(in: mat[point1])                       \
+                depend(inout:*output_ptr)                      \
                 firstprivate(graph_idx,num_args,x0,y0)
               {            
                 // Join the input data into a single variable
@@ -245,6 +247,7 @@ int main(int argc, char ** argv)
                 depend(inout:mat[point0])                     \
                 depend(in: mat[point1])                       \
                 depend(in: mat[point2])                       \
+                depend(inout:*output_ptr)                      \
                 firstprivate(graph_idx,num_args,x0,y0)
               {             
                 char * input_ptrs[num_args-1];
@@ -274,6 +277,7 @@ int main(int argc, char ** argv)
                 depend(in: mat[point1])                       \
                 depend(in: mat[point2])                       \
                 depend(in: mat[point3])                       \
+                depend(inout:*output_ptr)                      \
                 firstprivate(graph_idx,num_args,x0,y0)
               {             
                 char * input_ptrs[num_args-1];
@@ -308,6 +312,7 @@ int main(int argc, char ** argv)
                   depend(in: mat[point2])                       \
                   depend(in: mat[point3])                       \
                   depend(in: mat[point4])                       \
+                  depend(inout:*output_ptr)                      \
                   firstprivate(graph_idx,num_args,x0,y0)
                 {
                   char * input_ptrs[num_args-1];
@@ -347,6 +352,7 @@ int main(int argc, char ** argv)
                   depend(in: mat[point3])                       \
                   depend(in: mat[point4])                       \
                   depend(in: mat[point5])                       \
+                  depend(inout:*output_ptr)                      \
                   firstprivate(graph_idx,num_args,x0,y0)
                 {          
                   char * input_ptrs[num_args-1];
@@ -391,6 +397,7 @@ int main(int argc, char ** argv)
                   depend(in: mat[point4])                       \
                   depend(in: mat[point5])                       \
                   depend(in: mat[point6])                       \
+                  depend(inout:*output_ptr)                      \
                   firstprivate(graph_idx,num_args,x0,y0)
                 {             
                   char * input_ptrs[num_args-1];
@@ -440,6 +447,7 @@ int main(int argc, char ** argv)
                   depend(in: mat[point5])                       \
                   depend(in: mat[point6])                       \
                   depend(in: mat[point7])                       \
+                  depend(inout:*output_ptr)                      \
                   firstprivate(graph_idx,num_args,x0,y0)
                 {             
                   char * input_ptrs[num_args-1];
@@ -494,6 +502,7 @@ int main(int argc, char ** argv)
                   depend(in: mat[point6])                       \
                   depend(in: mat[point7])                       \
                   depend(in: mat[point8])                       \
+                  depend(inout:*output_ptr)                      \
                   firstprivate(graph_idx,num_args,x0,y0)
                 {              
                   char * input_ptrs[num_args-1];
@@ -553,6 +562,7 @@ int main(int argc, char ** argv)
                   depend(in: mat[point7])                       \
                   depend(in: mat[point8])                       \
                   depend(in: mat[point9])                       \
+                  depend(inout:*output_ptr)                      \
                   firstprivate(graph_idx,num_args,x0,y0)
                 {           
                   char * input_ptrs[num_args-1];
