@@ -132,7 +132,7 @@ int main(int argc, char ** argv)
       tile_t *tile_in = &mat[i];
       char *output_ptr = (char*)tile_in->output_buff;
       #pragma omp target enter data \
-          map(to:output_ptr[0:graph_out])
+          map(alloc:output_ptr[0:graph_out])
     }
   }   
 
