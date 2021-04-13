@@ -120,30 +120,28 @@ int main(int argc, char ** argv)
 
   double start = omp_get_wtime(); 
 
+  // Transfer the graph data using a broadcast (synchronous data map).
   #pragma omp target enter data map(to: graphs_array[:graphs.size()])
-
-  for (size_t i = 0; i < graphs.size(); i++)
-  {
-    size_t graph_out = graphs[i].output_bytes_per_task;
-    tile_t *mat = matrix[i].data;
-    int number_point= matrix[i].M * matrix[i].N;
-    for (size_t i = 0; i < number_point; i++)
-    {
-      tile_t *tile_in = &mat[i];
-      char *output_ptr = (char*)tile_in->output_buff;
-      #pragma omp target enter data \
-          map(alloc:output_ptr[0:graph_out])
-    }
-  }   
 
   #pragma omp parallel
   #pragma omp single
   {
-  // Run the task graph in parallel
+    // Run the task graph in parallel
     for (unsigned graph_idx = 0; graph_idx < graphs.size(); graph_idx++) {
       const TaskGraph &graph = graphs[graph_idx];
       tile_t *mat = matrix[graph_idx].data;
       size_t graph_out = graph.output_bytes_per_task;
+
+      // Alloc the data of each task on-demand using the memory management
+      // (asynchronous data maps).
+      int number_point = matrix[graph_idx].M * matrix[graph_idx].N;
+      for (size_t i = 0; i < number_point; i++) {
+        tile_t *tile_in = &mat[i];
+        char *output_ptr = (char*)tile_in->output_buff;
+        #pragma omp target enter data nowait                                   \
+            map(alloc: output_ptr[:graph_out])                                 \
+            depend(out: *output_ptr)
+      }
 
       for (int y = 0; y < graph.timesteps; y++) {
         long offset = graph.offset_at_timestep(y);
@@ -197,10 +195,9 @@ int main(int argc, char ** argv)
           {
             case 1:
             {
-              #pragma omp target nowait \
-                depend(inout:mat[point0])                     \
-                depend(inout:*output_ptr)                      \
-                firstprivate(graph_idx,num_args,x0,y0)            
+              #pragma omp target nowait                                        \
+                depend(inout: *output_ptr)                                     \
+                firstprivate(graph_idx, num_args, x0, y0)
               {
                 char * input_ptrs[num_args];
                 input_ptrs[0] = output_ptr;
@@ -217,11 +214,10 @@ int main(int argc, char ** argv)
               char *input_ptr0 = (char*)tile_in1->output_buff;
 
               // Pragma to send the task a node to execute it
-              #pragma omp target nowait \
-                depend(inout:mat[point0])                     \
-                depend(in: mat[point1])                       \
-                depend(inout:*output_ptr)                      \
-                firstprivate(graph_idx,num_args,x0,y0)
+              #pragma omp target nowait                                        \
+                depend(in: *input_ptr0)                                        \
+                depend(inout: *output_ptr)                                     \
+                firstprivate(graph_idx, num_args, x0, y0)
               {            
                 // Join the input data into a single variable
                 char * input_ptrs[num_args-1];
@@ -243,12 +239,11 @@ int main(int argc, char ** argv)
               char *input_ptr0 = (char*)tile_in1->output_buff;
               char *input_ptr1 = (char*)tile_in2->output_buff;
 
-              #pragma omp target nowait \
-                depend(inout:mat[point0])                     \
-                depend(in: mat[point1])                       \
-                depend(in: mat[point2])                       \
-                depend(inout:*output_ptr)                      \
-                firstprivate(graph_idx,num_args,x0,y0)
+              #pragma omp target nowait                                        \
+                depend(in: *input_ptr0)                                        \
+                depend(in: *input_ptr1)                                        \
+                depend(inout: *output_ptr)                                     \
+                firstprivate(graph_idx, num_args, x0, y0)
               {             
                 char * input_ptrs[num_args-1];
                 input_ptrs[0] = input_ptr0;
@@ -272,13 +267,12 @@ int main(int argc, char ** argv)
               char *input_ptr1 = (char*)tile_in2->output_buff;
               char *input_ptr2 = (char*)tile_in3->output_buff;
 
-              #pragma omp target nowait \
-                depend(inout:mat[point0])                     \
-                depend(in: mat[point1])                       \
-                depend(in: mat[point2])                       \
-                depend(in: mat[point3])                       \
-                depend(inout:*output_ptr)                      \
-                firstprivate(graph_idx,num_args,x0,y0)
+              #pragma omp target nowait                                        \
+                depend(in: *input_ptr0)                                        \
+                depend(in: *input_ptr1)                                        \
+                depend(in: *input_ptr2)                                        \
+                depend(inout: *output_ptr)                                     \
+                firstprivate(graph_idx, num_args, x0, y0)
               {             
                 char * input_ptrs[num_args-1];
                 input_ptrs[0] = input_ptr0;
@@ -306,14 +300,13 @@ int main(int argc, char ** argv)
                 char *input_ptr2 = (char*)tile_in3->output_buff;
                 char *input_ptr3 = (char*)tile_in4->output_buff;
 
-                #pragma omp target nowait \
-                  depend(inout:mat[point0])                     \
-                  depend(in: mat[point1])                       \
-                  depend(in: mat[point2])                       \
-                  depend(in: mat[point3])                       \
-                  depend(in: mat[point4])                       \
-                  depend(inout:*output_ptr)                      \
-                  firstprivate(graph_idx,num_args,x0,y0)
+                #pragma omp target nowait                                      \
+                  depend(in: *input_ptr0)                                      \
+                  depend(in: *input_ptr1)                                      \
+                  depend(in: *input_ptr2)                                      \
+                  depend(in: *input_ptr3)                                      \
+                  depend(inout: *output_ptr)                                   \
+                  firstprivate(graph_idx, num_args, x0, y0)
                 {
                   char * input_ptrs[num_args-1];
                   input_ptrs[0] = input_ptr0;
@@ -345,15 +338,14 @@ int main(int argc, char ** argv)
                 char *input_ptr3 = (char*)tile_in4->output_buff;
                 char *input_ptr4 = (char*)tile_in5->output_buff;
 
-                #pragma omp target nowait \
-                  depend(inout:mat[point0])                     \
-                  depend(in: mat[point1])                       \
-                  depend(in: mat[point2])                       \
-                  depend(in: mat[point3])                       \
-                  depend(in: mat[point4])                       \
-                  depend(in: mat[point5])                       \
-                  depend(inout:*output_ptr)                      \
-                  firstprivate(graph_idx,num_args,x0,y0)
+                #pragma omp target nowait                                      \
+                  depend(in: *input_ptr0)                                      \
+                  depend(in: *input_ptr1)                                      \
+                  depend(in: *input_ptr2)                                      \
+                  depend(in: *input_ptr3)                                      \
+                  depend(in: *input_ptr4)                                      \
+                  depend(inout: *output_ptr)                                   \
+                  firstprivate(graph_idx, num_args, x0, y0)
                 {          
                   char * input_ptrs[num_args-1];
                   input_ptrs[0] = input_ptr0;
@@ -389,16 +381,15 @@ int main(int argc, char ** argv)
                 char *input_ptr4 = (char*)tile_in5->output_buff;
                 char *input_ptr5 = (char*)tile_in6->output_buff;
 
-                #pragma omp target nowait \
-                  depend(inout:mat[point0])                     \
-                  depend(in: mat[point1])                       \
-                  depend(in: mat[point2])                       \
-                  depend(in: mat[point3])                       \
-                  depend(in: mat[point4])                       \
-                  depend(in: mat[point5])                       \
-                  depend(in: mat[point6])                       \
-                  depend(inout:*output_ptr)                      \
-                  firstprivate(graph_idx,num_args,x0,y0)
+                #pragma omp target nowait                                      \
+                  depend(in: *input_ptr0)                                      \
+                  depend(in: *input_ptr1)                                      \
+                  depend(in: *input_ptr2)                                      \
+                  depend(in: *input_ptr3)                                      \
+                  depend(in: *input_ptr4)                                      \
+                  depend(in: *input_ptr5)                                      \
+                  depend(inout: *output_ptr)                                   \
+                  firstprivate(graph_idx, num_args, x0, y0)
                 {             
                   char * input_ptrs[num_args-1];
                   input_ptrs[0] = input_ptr0;
@@ -438,17 +429,16 @@ int main(int argc, char ** argv)
                 char *input_ptr5 = (char*)tile_in6->output_buff;
                 char *input_ptr6 = (char*)tile_in7->output_buff;
 
-                #pragma omp target nowait \
-                  depend(inout:mat[point0])                     \
-                  depend(in: mat[point1])                       \
-                  depend(in: mat[point2])                       \
-                  depend(in: mat[point3])                       \
-                  depend(in: mat[point4])                       \
-                  depend(in: mat[point5])                       \
-                  depend(in: mat[point6])                       \
-                  depend(in: mat[point7])                       \
-                  depend(inout:*output_ptr)                      \
-                  firstprivate(graph_idx,num_args,x0,y0)
+                #pragma omp target nowait                                      \
+                  depend(in: *input_ptr0)                                      \
+                  depend(in: *input_ptr1)                                      \
+                  depend(in: *input_ptr2)                                      \
+                  depend(in: *input_ptr3)                                      \
+                  depend(in: *input_ptr4)                                      \
+                  depend(in: *input_ptr5)                                      \
+                  depend(in: *input_ptr6)                                      \
+                  depend(inout: *output_ptr)                                   \
+                  firstprivate(graph_idx, num_args, x0, y0)
                 {             
                   char * input_ptrs[num_args-1];
                   input_ptrs[0] = input_ptr0;
@@ -492,18 +482,17 @@ int main(int argc, char ** argv)
                 char *input_ptr6 = (char*)tile_in7->output_buff;
                 char *input_ptr7 = (char*)tile_in8->output_buff;
 
-                #pragma omp target nowait \
-                  depend(inout:mat[point0])                     \
-                  depend(in: mat[point1])                       \
-                  depend(in: mat[point2])                       \
-                  depend(in: mat[point3])                       \
-                  depend(in: mat[point4])                       \
-                  depend(in: mat[point5])                       \
-                  depend(in: mat[point6])                       \
-                  depend(in: mat[point7])                       \
-                  depend(in: mat[point8])                       \
-                  depend(inout:*output_ptr)                      \
-                  firstprivate(graph_idx,num_args,x0,y0)
+                #pragma omp target nowait                                      \
+                  depend(in: *input_ptr0)                                      \
+                  depend(in: *input_ptr1)                                      \
+                  depend(in: *input_ptr2)                                      \
+                  depend(in: *input_ptr3)                                      \
+                  depend(in: *input_ptr4)                                      \
+                  depend(in: *input_ptr5)                                      \
+                  depend(in: *input_ptr6)                                      \
+                  depend(in: *input_ptr7)                                      \
+                  depend(inout: *output_ptr)                                   \
+                  firstprivate(graph_idx, num_args, x0, y0)
                 {              
                   char * input_ptrs[num_args-1];
                   input_ptrs[0] = input_ptr0;
@@ -551,19 +540,18 @@ int main(int argc, char ** argv)
                 char *input_ptr7 = (char*)tile_in8->output_buff;
                 char *input_ptr8 = (char*)tile_in9->output_buff;
 
-                #pragma omp target nowait \
-                  depend(inout:mat[point0])                     \
-                  depend(in: mat[point1])                       \
-                  depend(in: mat[point2])                       \
-                  depend(in: mat[point3])                       \
-                  depend(in: mat[point4])                       \
-                  depend(in: mat[point5])                       \
-                  depend(in: mat[point6])                       \
-                  depend(in: mat[point7])                       \
-                  depend(in: mat[point8])                       \
-                  depend(in: mat[point9])                       \
-                  depend(inout:*output_ptr)                      \
-                  firstprivate(graph_idx,num_args,x0,y0)
+                #pragma omp target nowait                                      \
+                  depend(in: *input_ptr0)                                      \
+                  depend(in: *input_ptr1)                                      \
+                  depend(in: *input_ptr2)                                      \
+                  depend(in: *input_ptr3)                                      \
+                  depend(in: *input_ptr4)                                      \
+                  depend(in: *input_ptr5)                                      \
+                  depend(in: *input_ptr6)                                      \
+                  depend(in: *input_ptr7)                                      \
+                  depend(in: *input_ptr8)                                      \
+                  depend(inout: *output_ptr)                                   \
+                  firstprivate(graph_idx, num_args, x0, y0)
                 {           
                   char * input_ptrs[num_args-1];
                   input_ptrs[0] = input_ptr0;
@@ -585,25 +573,20 @@ int main(int argc, char ** argv)
             }
         }
       }
+
+      // Delete the data of each task on-demand using (asynchronous data maps)
+      // after their respective tasks have used them.
+      for (size_t i = 0; i < number_point; i++) {
+        tile_t *tile_in = &mat[i];
+        char *output_ptr = (char *)tile_in->output_buff;
+        #pragma omp target exit data nowait                                    \
+                map(release: output_ptr[:graph_out])                           \
+                depend(inout: *output_ptr)
+      }
     }
   }
 
-  for (size_t i = 0; i < graphs.size(); i++)
-  {
-    size_t graph_out = graphs[i].output_bytes_per_task;
-    tile_t *mat = matrix[i].data;
-    int number_point= matrix[i].M * matrix[i].N;
-    for (size_t i = 0; i < number_point; i++)
-    {
-      tile_t *tile_in = &mat[i];
-      char *output_ptr = (char*)tile_in->output_buff;
-      #pragma omp target exit data \
-          map(delete:output_ptr[0:graph_out])
-    }
-  } 
-  
-
-  #pragma omp target exit data map(delete: graphs_array[:graphs.size()])
+  #pragma omp target exit data map(release: graphs_array[:graphs.size()])
 
   double end = omp_get_wtime();
   double elapsed = end -start;
