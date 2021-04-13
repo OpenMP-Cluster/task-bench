@@ -36,3 +36,8 @@ cached_legion.h
 # dask
 *.lock
 worker-*
+
+# Editor files
+.vscode
+.cache
+*.dot
