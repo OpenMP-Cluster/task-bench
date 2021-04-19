@@ -99,6 +99,7 @@ int main(int argc, char ** argv)
   App new_app(argc, argv);  
   std::vector<TaskGraph> graphs = new_app.graphs;
 
+
   // Create the Task Graphs and the information of each task
   matrix_t *matrix = (matrix_t *)malloc(sizeof(matrix_t) * graphs.size());
   for(unsigned i = 0; i<graphs.size(); i++){
@@ -112,18 +113,35 @@ int main(int argc, char ** argv)
     }
   }
 
+  TaskGraph* graphs_array = graphs.data();
+
   // Show the information of the task graphs
   new_app.display();
 
   double start = omp_get_wtime(); 
 
-  // Run the task graph in parallel
+  // Transfer the graph data using a broadcast (synchronous data map).
+  #pragma omp target enter data map(to: graphs_array[:graphs.size()])
+
   #pragma omp parallel
   #pragma omp master
   {
+    // Run the task graph in parallel
     for (unsigned graph_idx = 0; graph_idx < graphs.size(); graph_idx++) {
       const TaskGraph &graph = graphs[graph_idx];
       tile_t *mat = matrix[graph_idx].data;
+      size_t graph_out = graph.output_bytes_per_task;
+
+      // Alloc the data of each task on-demand using the memory management
+      // (asynchronous data maps).
+      int number_point = matrix[graph_idx].M * matrix[graph_idx].N;
+      for (size_t i = 0; i < number_point; i++) {
+        tile_t *tile_in = &mat[i];
+        char *output_ptr = (char*)tile_in->output_buff;
+        #pragma omp target enter data nowait                                   \
+            map(alloc: output_ptr[:graph_out])                                 \
+            depend(out: *output_ptr)
+      }
 
       for (int y = 0; y < graph.timesteps; y++) {
         long offset = graph.offset_at_timestep(y);
@@ -177,13 +195,13 @@ int main(int argc, char ** argv)
           {
             case 1:
             {
-              #pragma omp target nowait \
-                depend(inout:mat[point0])                     \
-                firstprivate(graph,num_args,x0,y0)                     \
-                map(tofrom: output_ptr[:graph.output_bytes_per_task])
+              #pragma omp target nowait                                        \
+                depend(inout: *output_ptr)                                     \
+                firstprivate(graph_idx, num_args, x0, y0)
               {
                 char * input_ptrs[num_args];
                 input_ptrs[0] = output_ptr;
+                TaskGraph graph= graphs_array[graph_idx];
                 task_execute(graph,x0,y0, num_args, input_ptrs, output_ptr);
               }
               break;
@@ -196,16 +214,15 @@ int main(int argc, char ** argv)
               char *input_ptr0 = (char*)tile_in1->output_buff;
 
               // Pragma to send the task a node to execute it
-              #pragma omp target nowait \
-                depend(inout:mat[point0])                     \
-                depend(in: mat[point1])                       \
-                firstprivate(graph,num_args,x0,y0)                        \
-                map(to:input_ptr0[:graph.output_bytes_per_task])\
-                map(tofrom: output_ptr[:graph.output_bytes_per_task])
-              {                  
+              #pragma omp target nowait                                        \
+                depend(in: *input_ptr0)                                        \
+                depend(inout: *output_ptr)                                     \
+                firstprivate(graph_idx, num_args, x0, y0)
+              {            
                 // Join the input data into a single variable
                 char * input_ptrs[num_args-1];
                 input_ptrs[0] = input_ptr0;
+                TaskGraph graph= graphs_array[graph_idx];
                 // Execute the task
                 task_execute(graph,x0,y0, num_args-1, input_ptrs, output_ptr);
               }
@@ -222,18 +239,16 @@ int main(int argc, char ** argv)
               char *input_ptr0 = (char*)tile_in1->output_buff;
               char *input_ptr1 = (char*)tile_in2->output_buff;
 
-              #pragma omp target nowait \
-                depend(inout:mat[point0])                     \
-                depend(in: mat[point1])                       \
-                depend(in: mat[point2])                       \
-                firstprivate(graph,num_args,x0,y0)                 \
-                map(to:input_ptr0[:graph.output_bytes_per_task],\
-                       input_ptr1[:graph.output_bytes_per_task])\
-                map(tofrom: output_ptr[:graph.output_bytes_per_task])
-              {                  
+              #pragma omp target nowait                                        \
+                depend(in: *input_ptr0)                                        \
+                depend(in: *input_ptr1)                                        \
+                depend(inout: *output_ptr)                                     \
+                firstprivate(graph_idx, num_args, x0, y0)
+              {             
                 char * input_ptrs[num_args-1];
                 input_ptrs[0] = input_ptr0;
                 input_ptrs[1] = input_ptr1;
+                TaskGraph graph= graphs_array[graph_idx];
                 task_execute(graph,x0,y0, num_args-1, input_ptrs, output_ptr);
               }
               break;
@@ -252,21 +267,18 @@ int main(int argc, char ** argv)
               char *input_ptr1 = (char*)tile_in2->output_buff;
               char *input_ptr2 = (char*)tile_in3->output_buff;
 
-              #pragma omp target nowait \
-                depend(inout:mat[point0])                     \
-                depend(in: mat[point1])                       \
-                depend(in: mat[point2])                       \
-                depend(in: mat[point3])                       \
-                firstprivate(graph,num_args,x0,y0)                                     \
-                map(to:input_ptr0[:graph.output_bytes_per_task],\
-                       input_ptr1[:graph.output_bytes_per_task],\
-                       input_ptr2[:graph.output_bytes_per_task])\
-                map(tofrom: output_ptr[:graph.output_bytes_per_task])
-              {                  
+              #pragma omp target nowait                                        \
+                depend(in: *input_ptr0)                                        \
+                depend(in: *input_ptr1)                                        \
+                depend(in: *input_ptr2)                                        \
+                depend(inout: *output_ptr)                                     \
+                firstprivate(graph_idx, num_args, x0, y0)
+              {             
                 char * input_ptrs[num_args-1];
                 input_ptrs[0] = input_ptr0;
                 input_ptrs[1] = input_ptr1;
                 input_ptrs[2] = input_ptr2;
+                TaskGraph graph= graphs_array[graph_idx];
                 task_execute(graph,x0,y0, num_args-1, input_ptrs, output_ptr);
               }
               break;
@@ -288,24 +300,20 @@ int main(int argc, char ** argv)
                 char *input_ptr2 = (char*)tile_in3->output_buff;
                 char *input_ptr3 = (char*)tile_in4->output_buff;
 
-                #pragma omp target nowait \
-                  depend(inout:mat[point0])                     \
-                  depend(in: mat[point1])                       \
-                  depend(in: mat[point2])                       \
-                  depend(in: mat[point3])                       \
-                  depend(in: mat[point4])                       \
-                  firstprivate(graph,num_args,x0,y0)                              \
-                  map(to:input_ptr0[:graph.output_bytes_per_task],\
-                         input_ptr1[:graph.output_bytes_per_task],\
-                         input_ptr2[:graph.output_bytes_per_task],\
-                         input_ptr3[:graph.output_bytes_per_task])\
-                  map(tofrom: output_ptr[:graph.output_bytes_per_task])
-                {                  
+                #pragma omp target nowait                                      \
+                  depend(in: *input_ptr0)                                      \
+                  depend(in: *input_ptr1)                                      \
+                  depend(in: *input_ptr2)                                      \
+                  depend(in: *input_ptr3)                                      \
+                  depend(inout: *output_ptr)                                   \
+                  firstprivate(graph_idx, num_args, x0, y0)
+                {
                   char * input_ptrs[num_args-1];
                   input_ptrs[0] = input_ptr0;
                   input_ptrs[1] = input_ptr1;
                   input_ptrs[2] = input_ptr2;
                   input_ptrs[3] = input_ptr3;
+                  TaskGraph graph= graphs_array[graph_idx];
                   task_execute(graph,x0,y0, num_args-1, input_ptrs, output_ptr);
                 }
                 break;
@@ -330,27 +338,22 @@ int main(int argc, char ** argv)
                 char *input_ptr3 = (char*)tile_in4->output_buff;
                 char *input_ptr4 = (char*)tile_in5->output_buff;
 
-                #pragma omp target nowait \
-                  depend(inout:mat[point0])                     \
-                  depend(in: mat[point1])                       \
-                  depend(in: mat[point2])                       \
-                  depend(in: mat[point3])                       \
-                  depend(in: mat[point4])                       \
-                  depend(in: mat[point5])                       \
-                  firstprivate(graph,num_args,x0,y0)                       \
-                  map(to:input_ptr0[:graph.output_bytes_per_task],\
-                         input_ptr1[:graph.output_bytes_per_task],\
-                         input_ptr2[:graph.output_bytes_per_task],\
-                         input_ptr3[:graph.output_bytes_per_task],\
-                         input_ptr4[:graph.output_bytes_per_task])\
-                  map(tofrom: output_ptr[:graph.output_bytes_per_task])
-                {                  
+                #pragma omp target nowait                                      \
+                  depend(in: *input_ptr0)                                      \
+                  depend(in: *input_ptr1)                                      \
+                  depend(in: *input_ptr2)                                      \
+                  depend(in: *input_ptr3)                                      \
+                  depend(in: *input_ptr4)                                      \
+                  depend(inout: *output_ptr)                                   \
+                  firstprivate(graph_idx, num_args, x0, y0)
+                {          
                   char * input_ptrs[num_args-1];
                   input_ptrs[0] = input_ptr0;
                   input_ptrs[1] = input_ptr1;
                   input_ptrs[2] = input_ptr2;
                   input_ptrs[3] = input_ptr3;
                   input_ptrs[4] = input_ptr4;
+                  TaskGraph graph= graphs_array[graph_idx];
                   task_execute(graph,x0,y0, num_args-1, input_ptrs, output_ptr);
                 }
                 break;
@@ -378,23 +381,16 @@ int main(int argc, char ** argv)
                 char *input_ptr4 = (char*)tile_in5->output_buff;
                 char *input_ptr5 = (char*)tile_in6->output_buff;
 
-                #pragma omp target nowait \
-                  depend(inout:mat[point0])                     \
-                  depend(in: mat[point1])                       \
-                  depend(in: mat[point2])                       \
-                  depend(in: mat[point3])                       \
-                  depend(in: mat[point4])                       \
-                  depend(in: mat[point5])                       \
-                  depend(in: mat[point6])                       \
-                  firstprivate(graph,num_args,x0,y0)                \
-                  map(to:input_ptr0[:graph.output_bytes_per_task],\
-                         input_ptr1[:graph.output_bytes_per_task],\
-                         input_ptr2[:graph.output_bytes_per_task],\
-                         input_ptr3[:graph.output_bytes_per_task],\
-                         input_ptr4[:graph.output_bytes_per_task],\
-                         input_ptr5[:graph.output_bytes_per_task])\
-                  map(tofrom: output_ptr[:graph.output_bytes_per_task])
-                {                  
+                #pragma omp target nowait                                      \
+                  depend(in: *input_ptr0)                                      \
+                  depend(in: *input_ptr1)                                      \
+                  depend(in: *input_ptr2)                                      \
+                  depend(in: *input_ptr3)                                      \
+                  depend(in: *input_ptr4)                                      \
+                  depend(in: *input_ptr5)                                      \
+                  depend(inout: *output_ptr)                                   \
+                  firstprivate(graph_idx, num_args, x0, y0)
+                {             
                   char * input_ptrs[num_args-1];
                   input_ptrs[0] = input_ptr0;
                   input_ptrs[1] = input_ptr1;
@@ -402,6 +398,7 @@ int main(int argc, char ** argv)
                   input_ptrs[3] = input_ptr3;
                   input_ptrs[4] = input_ptr4;
                   input_ptrs[5] = input_ptr5;
+                  TaskGraph graph= graphs_array[graph_idx];
                   task_execute(graph,x0,y0, num_args-1, input_ptrs, output_ptr);
                 }
                 break;
@@ -432,25 +429,17 @@ int main(int argc, char ** argv)
                 char *input_ptr5 = (char*)tile_in6->output_buff;
                 char *input_ptr6 = (char*)tile_in7->output_buff;
 
-                #pragma omp target nowait \
-                  depend(inout:mat[point0])                     \
-                  depend(in: mat[point1])                       \
-                  depend(in: mat[point2])                       \
-                  depend(in: mat[point3])                       \
-                  depend(in: mat[point4])                       \
-                  depend(in: mat[point5])                       \
-                  depend(in: mat[point6])                       \
-                  depend(in: mat[point7])                       \
-                  firstprivate(graph,num_args,x0,y0)                                     \
-                  map(to:input_ptr0[:graph.output_bytes_per_task],\
-                         input_ptr1[:graph.output_bytes_per_task],\
-                         input_ptr2[:graph.output_bytes_per_task],\
-                         input_ptr3[:graph.output_bytes_per_task],\
-                         input_ptr4[:graph.output_bytes_per_task],\
-                         input_ptr5[:graph.output_bytes_per_task],\
-                         input_ptr6[:graph.output_bytes_per_task])\
-                  map(tofrom: output_ptr[:graph.output_bytes_per_task])
-                {                  
+                #pragma omp target nowait                                      \
+                  depend(in: *input_ptr0)                                      \
+                  depend(in: *input_ptr1)                                      \
+                  depend(in: *input_ptr2)                                      \
+                  depend(in: *input_ptr3)                                      \
+                  depend(in: *input_ptr4)                                      \
+                  depend(in: *input_ptr5)                                      \
+                  depend(in: *input_ptr6)                                      \
+                  depend(inout: *output_ptr)                                   \
+                  firstprivate(graph_idx, num_args, x0, y0)
+                {             
                   char * input_ptrs[num_args-1];
                   input_ptrs[0] = input_ptr0;
                   input_ptrs[1] = input_ptr1;
@@ -459,6 +448,7 @@ int main(int argc, char ** argv)
                   input_ptrs[4] = input_ptr4;
                   input_ptrs[5] = input_ptr5;
                   input_ptrs[6] = input_ptr6;
+                  TaskGraph graph= graphs_array[graph_idx];
                   task_execute(graph,x0,y0, num_args-1, input_ptrs, output_ptr);
                 }
                 break;
@@ -492,27 +482,18 @@ int main(int argc, char ** argv)
                 char *input_ptr6 = (char*)tile_in7->output_buff;
                 char *input_ptr7 = (char*)tile_in8->output_buff;
 
-                #pragma omp target nowait \
-                  depend(inout:mat[point0])                     \
-                  depend(in: mat[point1])                       \
-                  depend(in: mat[point2])                       \
-                  depend(in: mat[point3])                       \
-                  depend(in: mat[point4])                       \
-                  depend(in: mat[point5])                       \
-                  depend(in: mat[point6])                       \
-                  depend(in: mat[point7])                       \
-                  depend(in: mat[point8])                       \
-                  firstprivate(graph,num_args,x0,y0)                              \
-                  map(to:input_ptr0[:graph.output_bytes_per_task],\
-                         input_ptr1[:graph.output_bytes_per_task],\
-                         input_ptr2[:graph.output_bytes_per_task],\
-                         input_ptr3[:graph.output_bytes_per_task],\
-                         input_ptr4[:graph.output_bytes_per_task],\
-                         input_ptr5[:graph.output_bytes_per_task],\
-                         input_ptr6[:graph.output_bytes_per_task],\
-                         input_ptr7[:graph.output_bytes_per_task])\
-                  map(tofrom: output_ptr[:graph.output_bytes_per_task])
-                {                  
+                #pragma omp target nowait                                      \
+                  depend(in: *input_ptr0)                                      \
+                  depend(in: *input_ptr1)                                      \
+                  depend(in: *input_ptr2)                                      \
+                  depend(in: *input_ptr3)                                      \
+                  depend(in: *input_ptr4)                                      \
+                  depend(in: *input_ptr5)                                      \
+                  depend(in: *input_ptr6)                                      \
+                  depend(in: *input_ptr7)                                      \
+                  depend(inout: *output_ptr)                                   \
+                  firstprivate(graph_idx, num_args, x0, y0)
+                {              
                   char * input_ptrs[num_args-1];
                   input_ptrs[0] = input_ptr0;
                   input_ptrs[1] = input_ptr1;
@@ -522,6 +503,7 @@ int main(int argc, char ** argv)
                   input_ptrs[5] = input_ptr5;
                   input_ptrs[6] = input_ptr6;
                   input_ptrs[7] = input_ptr7;
+                  TaskGraph graph= graphs_array[graph_idx];
                   task_execute(graph,x0,y0, num_args-1, input_ptrs, output_ptr);
                 }
                 break;
@@ -558,29 +540,19 @@ int main(int argc, char ** argv)
                 char *input_ptr7 = (char*)tile_in8->output_buff;
                 char *input_ptr8 = (char*)tile_in9->output_buff;
 
-                #pragma omp target nowait \
-                  depend(inout:mat[point0])                     \
-                  depend(in: mat[point1])                       \
-                  depend(in: mat[point2])                       \
-                  depend(in: mat[point3])                       \
-                  depend(in: mat[point4])                       \
-                  depend(in: mat[point5])                       \
-                  depend(in: mat[point6])                       \
-                  depend(in: mat[point7])                       \
-                  depend(in: mat[point8])                       \
-                  depend(in: mat[point9])                       \
-                  firstprivate(graph,num_args,x0,y0)                       \
-                  map(to:input_ptr0[:graph.output_bytes_per_task],\
-                         input_ptr1[:graph.output_bytes_per_task],\
-                         input_ptr2[:graph.output_bytes_per_task],\
-                         input_ptr3[:graph.output_bytes_per_task],\
-                         input_ptr4[:graph.output_bytes_per_task],\
-                         input_ptr5[:graph.output_bytes_per_task],\
-                         input_ptr6[:graph.output_bytes_per_task],\
-                         input_ptr7[:graph.output_bytes_per_task],\
-                         input_ptr8[:graph.output_bytes_per_task])\
-                  map(tofrom: output_ptr[:graph.output_bytes_per_task])
-                {                  
+                #pragma omp target nowait                                      \
+                  depend(in: *input_ptr0)                                      \
+                  depend(in: *input_ptr1)                                      \
+                  depend(in: *input_ptr2)                                      \
+                  depend(in: *input_ptr3)                                      \
+                  depend(in: *input_ptr4)                                      \
+                  depend(in: *input_ptr5)                                      \
+                  depend(in: *input_ptr6)                                      \
+                  depend(in: *input_ptr7)                                      \
+                  depend(in: *input_ptr8)                                      \
+                  depend(inout: *output_ptr)                                   \
+                  firstprivate(graph_idx, num_args, x0, y0)
+                {           
                   char * input_ptrs[num_args-1];
                   input_ptrs[0] = input_ptr0;
                   input_ptrs[1] = input_ptr1;
@@ -591,6 +563,7 @@ int main(int argc, char ** argv)
                   input_ptrs[6] = input_ptr6;
                   input_ptrs[7] = input_ptr7;
                   input_ptrs[8] = input_ptr8;
+                  TaskGraph graph= graphs_array[graph_idx];
                   task_execute(graph,x0,y0, num_args-1, input_ptrs, output_ptr);
                 }
                 break;
@@ -600,8 +573,20 @@ int main(int argc, char ** argv)
             }
         }
       }
+
+      // Delete the data of each task on-demand using (asynchronous data maps)
+      // after their respective tasks have used them.
+      for (size_t i = 0; i < number_point; i++) {
+        tile_t *tile_in = &mat[i];
+        char *output_ptr = (char *)tile_in->output_buff;
+        #pragma omp target exit data nowait                                    \
+                map(release: output_ptr[:graph_out])                           \
+                depend(inout: *output_ptr)
+      }
     }
   }
+
+  #pragma omp target exit data map(release: graphs_array[:graphs.size()])
 
   double end = omp_get_wtime();
   double elapsed = end -start;

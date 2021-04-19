@@ -1,21 +1,22 @@
 #!/bin/sh
 #PBS -q route 
-#PBS -N mpi-job 
-#PBS -o job-test.out
-#PBS -e job-test.err
+#PBS -N omp-10
+#PBS -o omp_9.out
+#PBS -e omp_9.err
+#PBS -l walltime=30:00:00
 #PBS -V
-#PBS -l select=4:ncpus=1:ngpus=0:Qlist=Compute
-#PBS -l place=scatter
-#PBS -l walltime=1:00:00
+#PBS -l select=9:ncpus=5:ngpus=0:Qlist=GPUK40
 
+# cd to job directory
+cd $PBS_O_WORKDIR
 
 # program loading and env configuration
 . $HOME/.bashrc
 source /etc/profile.d/modules.sh
+module purge
 module load mpich/mpich2-1.4.1
 module load singularity/singularity-3.0.3
 
-export LD_LIBRARY_PATH=/usr/local/clang/lib:$LD_LIBRARY_PATH
 
 basic_types=(
     trivial
@@ -29,17 +30,40 @@ basic_types=(
     "spread -period 2"
     random_nearest
 )
-extended_types=(
-    "${basic_types[@]}"
-    all_to_all
-)
 
-kernels=("" "$compute_bound" "$memory_bound" "$imbalanced" "$communication_bound")
 
-steps=23
+kernel="compute_bound"
 
-for t in "${basic_types[@]}"; do
-  for k in "${kernels[@]}"; do
-    mpirun -np 3 -host gn030,gn029,gn031  singularity exec docker://ompcluster/runtime:latest ./ompcluster/main -steps $steps -type $t $k
-  done
+iter_number=10
+
+dir_output="/home/carlacc/TaskBench/Output/"
+
+
+# Execute TaskBench MPI and MPI_OpenMP
+name_omp="ompcluster"
+name_mpi="mpinonblock"
+name_mpi_synchronous="mpisynchronous"
+name_mpi_openmp="mpiopenmp"
+name_starup="starup"
+
+node=9
+
+export OMP_NUM_THREADS=16
+export LIBOMPTARGET_MPI_EVENT_QUEUE_SIZE=10
+export LIBOMPTARGET_MPI_ADDITIONAL_HANDLERS=16
+
+cat $PBS_NODEFILE > hostfile.$PBS_JOBID.txt
+
+
+for steps in 23 #25
+do
+    for t in "${basic_types[@]}"; do
+       for iter in 1 2 3 4 5
+        do
+            echo "++ mpirun -hostfile hostfile.$PBS_JOBID.txt -ppn 1   singularity exec /home/carlacc/TaskBench/runtime-dev_latest.sif ./ompcluster/main -steps $steps -type $t -kernel $kernel -iter $iter_number"
+	        mpirun -hostfile hostfile.$PBS_JOBID.txt -ppn 1   singularity exec /home/carlacc/TaskBench/runtime-dev_latest.sif ./ompcluster/main -steps $steps -type $t -kernel $kernel -iter $iter_number #>${dir_output}${name_omp}_${t}_${iter_number}_${steps}_${iter}.txt
+        done
+    done
+    echo "Final node  $steps"
 done
+

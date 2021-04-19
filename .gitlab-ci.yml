@@ -1,4 +1,4 @@
-image: ompcluster/runtime:latest
+image: ompcluster/runtime-dev:latest
 
 variables:
   DEFAULT_FEATURES: 0 #  specify explicit what to use in each build
