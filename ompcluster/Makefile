@@ -28,7 +28,7 @@ CXXFLAGS += $(INC)
 
 include ../core/make_blas.mk
 
-TARGET = main
+TARGET = main main_no_datamap
 all: $(TARGET)
 
 .PRECIOUS: %.cc %.o
@@ -37,6 +37,12 @@ main.o: main.cc ../core/timer.h
 	$(CXX) -c $(CXXFLAGS) $<
 
 main: main.o
+	$(CXX) $^ $(LIB) $(LDFLAGS) -o $@
+
+main_no_datamap.o: main_no_datamap.cc ../core/timer.h
+	$(CXX) -c $(CXXFLAGS) $<
+
+main_no_datamap: main_no_datamap.o
 	$(CXX) $^ $(LIB) $(LDFLAGS) -o $@
 
 clean:

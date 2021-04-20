@@ -74,10 +74,12 @@ fi
 if [[ $USE_OMPCLUSTER -eq 1 ]]; then
     for t in "${basic_types[@]}"; do
         for k in "${kernels[@]}"; do
-            mpirun -np 2 ./ompcluster/main -steps $steps -type $t $k 
-            mpirun -np 4 ./ompcluster/main -steps $steps -type $t $k 
-            mpirun -np 3 ./ompcluster/main -steps $steps -type $t $k 
-            mpirun -np 3 ./ompcluster/main -steps $steps -type $t $k -and -steps $steps -type $t $k
+            for binary in main main_no_datamap; do
+                mpirun -np 2 ./ompcluster/$binary -steps $steps -type $t $k
+                mpirun -np 4 ./ompcluster/$binary -steps $steps -type $t $k
+                mpirun -np 3 ./ompcluster/$binary -steps $steps -type $t $k
+                mpirun -np 3 ./ompcluster/$binary -steps $steps -type $t $k -and -steps $steps -type $t $k
+            done
         done
     done
 fi
@@ -305,7 +307,7 @@ fi
     #     exit 1
     # fi
 
-    $SPARK_SRC_DIR/sbin/start-all.sh 
+    $SPARK_SRC_DIR/sbin/start-all.sh
     #run standalone cluster, not local
     MASTER_URL=spark://localhost:7077
 
@@ -328,7 +330,7 @@ fi
         done
     done
 
-    $SPARK_SRC_DIR/sbin/stop-all.sh 
+    $SPARK_SRC_DIR/sbin/stop-all.sh
 fi)
 
 (if [[ $USE_SWIFT -eq 1 ]]; then
