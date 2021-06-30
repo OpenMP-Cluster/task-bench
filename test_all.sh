@@ -26,6 +26,11 @@ extended_types=(
     "${basic_types[@]}"
     all_to_all
 )
+reduced_types=(
+    trivial
+    no_comm
+    fft
+)
 
 compute_bound="-kernel compute_bound -iter 1024"
 memory_bound="-kernel memory_bound -iter 1024 -scratch $((64*16))"
@@ -72,16 +77,29 @@ if [[ $USE_MPI_OPENMP -eq 1 ]]; then
 fi
 
 if [[ $USE_OMPCLUSTER -eq 1 ]]; then
-    for t in "${basic_types[@]}"; do
-        for k in "${kernels[@]}"; do
-            for binary in main main_no_datamap; do
-                mpirun -np 2 ./ompcluster/$binary -steps $steps -type $t $k
-                mpirun -np 4 ./ompcluster/$binary -steps $steps -type $t $k
-                mpirun -np 3 ./ompcluster/$binary -steps $steps -type $t $k
-                mpirun -np 3 ./ompcluster/$binary -steps $steps -type $t $k -and -steps $steps -type $t $k
+    if [[ $SHORT_TESTS -neq 1 ]]; then
+        for t in "${basic_types[@]}"; do
+            for k in "${kernels[@]}"; do
+                mpirun -np 2 ./ompcluster/main -steps $steps -type $t $k
+                mpirun -np 4 ./ompcluster/main -steps $steps -type $t $k
+                mpirun -np 3 ./ompcluster/main -steps $steps -type $t $k
+                mpirun -np 3 ./ompcluster/main -steps $steps -type $t $k -and -steps $steps -type $t $k
             done
         done
-    done
+        for t in "${reduced_types[@]}"; do
+            mpirun -np 3 ./ompcluster/main_no_datamap -steps $steps -type $t $compute_bound
+        done
+    else
+        for t in "${basic_types[@]}"; do
+            for k in "${kernels[@]}"; do
+                mpirun -np 2 ./ompcluster/main -steps $steps -type $t $k
+                mpirun -np 4 ./ompcluster/main -steps $steps -type $t $k
+            done
+        done
+        for t in "${reduced_types[@]}"; do
+            mpirun -np 3 ./ompcluster/main_no_datamap -steps $steps -type $t $compute_bound
+        done
+    fi
 fi
 
 if [[ $USE_LEGION -eq 1 ]]; then
