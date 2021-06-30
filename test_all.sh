@@ -77,7 +77,7 @@ if [[ $USE_MPI_OPENMP -eq 1 ]]; then
 fi
 
 if [[ $USE_OMPCLUSTER -eq 1 ]]; then
-    if [[ $SHORT_TESTS -neq 1 ]]; then
+    if [[ $SHORT_TEST -ne 1 ]]; then
         for t in "${basic_types[@]}"; do
             for k in "${kernels[@]}"; do
                 mpirun -np 2 ./ompcluster/main -steps $steps -type $t $k
