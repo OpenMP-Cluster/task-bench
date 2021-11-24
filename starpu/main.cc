@@ -769,7 +769,7 @@ StarPUApp::StarPUApp(int argc, char **argv)
     TaskGraph &graph = graphs[i];
     matrix_t &mat = mat_array[i];
     
-    MB_cal = sqrt(graph.output_bytes_per_task / sizeof(float));
+    MB_cal = ceil(sqrt(graph.output_bytes_per_task / sizeof(float)));
     if (MB_cal > MB) {
       MB = MB_cal;
     }
