@@ -120,12 +120,15 @@ int main(int argc, char ** argv)
 
   double start = omp_get_wtime(); 
 
-  // Transfer the graph data using a broadcast (synchronous data map).
-  #pragma omp target enter data map(to: graphs_array[:graphs.size()])
 
   #pragma omp parallel
   #pragma omp master
   {
+    // Transfer the graph data
+    #pragma omp target enter data nowait                                       \
+        map(to: graphs_array[:graphs.size()])                                  \
+        depend(out: *graphs_array)
+    
     // Run the task graph in parallel
     for (unsigned graph_idx = 0; graph_idx < graphs.size(); graph_idx++) {
       const TaskGraph &graph = graphs[graph_idx];
@@ -196,6 +199,7 @@ int main(int argc, char ** argv)
             case 1:
             {
               #pragma omp target nowait                                        \
+                depend(in: *graphs_array)                                      \
                 depend(inout: *output_ptr)                                     \
                 firstprivate(graph_idx, num_args, x0, y0)
               {
@@ -215,6 +219,7 @@ int main(int argc, char ** argv)
 
               // Pragma to send the task a node to execute it
               #pragma omp target nowait                                        \
+                depend(in: *graphs_array)                                      \
                 depend(in: *input_ptr0)                                        \
                 depend(inout: *output_ptr)                                     \
                 firstprivate(graph_idx, num_args, x0, y0)
@@ -240,6 +245,7 @@ int main(int argc, char ** argv)
               char *input_ptr1 = (char*)tile_in2->output_buff;
 
               #pragma omp target nowait                                        \
+                depend(in: *graphs_array)                                      \
                 depend(in: *input_ptr0)                                        \
                 depend(in: *input_ptr1)                                        \
                 depend(inout: *output_ptr)                                     \
@@ -268,6 +274,7 @@ int main(int argc, char ** argv)
               char *input_ptr2 = (char*)tile_in3->output_buff;
 
               #pragma omp target nowait                                        \
+                depend(in: *graphs_array)                                      \
                 depend(in: *input_ptr0)                                        \
                 depend(in: *input_ptr1)                                        \
                 depend(in: *input_ptr2)                                        \
@@ -301,6 +308,7 @@ int main(int argc, char ** argv)
                 char *input_ptr3 = (char*)tile_in4->output_buff;
 
                 #pragma omp target nowait                                      \
+                  depend(in: *graphs_array)                                    \
                   depend(in: *input_ptr0)                                      \
                   depend(in: *input_ptr1)                                      \
                   depend(in: *input_ptr2)                                      \
@@ -339,6 +347,7 @@ int main(int argc, char ** argv)
                 char *input_ptr4 = (char*)tile_in5->output_buff;
 
                 #pragma omp target nowait                                      \
+                  depend(in: *graphs_array)                                    \
                   depend(in: *input_ptr0)                                      \
                   depend(in: *input_ptr1)                                      \
                   depend(in: *input_ptr2)                                      \
@@ -382,6 +391,7 @@ int main(int argc, char ** argv)
                 char *input_ptr5 = (char*)tile_in6->output_buff;
 
                 #pragma omp target nowait                                      \
+                  depend(in: *graphs_array)                                    \
                   depend(in: *input_ptr0)                                      \
                   depend(in: *input_ptr1)                                      \
                   depend(in: *input_ptr2)                                      \
@@ -430,6 +440,7 @@ int main(int argc, char ** argv)
                 char *input_ptr6 = (char*)tile_in7->output_buff;
 
                 #pragma omp target nowait                                      \
+                  depend(in: *graphs_array)                                    \
                   depend(in: *input_ptr0)                                      \
                   depend(in: *input_ptr1)                                      \
                   depend(in: *input_ptr2)                                      \
@@ -483,6 +494,7 @@ int main(int argc, char ** argv)
                 char *input_ptr7 = (char*)tile_in8->output_buff;
 
                 #pragma omp target nowait                                      \
+                  depend(in: *graphs_array)                                    \
                   depend(in: *input_ptr0)                                      \
                   depend(in: *input_ptr1)                                      \
                   depend(in: *input_ptr2)                                      \
@@ -541,6 +553,7 @@ int main(int argc, char ** argv)
                 char *input_ptr8 = (char*)tile_in9->output_buff;
 
                 #pragma omp target nowait                                      \
+                  depend(in: *graphs_array)                                    \
                   depend(in: *input_ptr0)                                      \
                   depend(in: *input_ptr1)                                      \
                   depend(in: *input_ptr2)                                      \
@@ -584,9 +597,11 @@ int main(int argc, char ** argv)
                 depend(inout: *output_ptr)
       }
     }
+    
+    #pragma omp target exit data nowait                                        \
+              map(release: graphs_array[:graphs.size()])                       \
+              depend(inout: *graphs_array)
   }
-
-  #pragma omp target exit data map(release: graphs_array[:graphs.size()])
 
   double end = omp_get_wtime();
   double elapsed = end -start;
