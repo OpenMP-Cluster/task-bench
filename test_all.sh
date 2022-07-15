@@ -86,9 +86,9 @@ if [[ $USE_OMPCLUSTER -eq 1 ]]; then
                 mpirun -np 3 ./ompcluster/main -steps $steps -type $t $k -and -steps $steps -type $t $k
             done
         done
-        for t in "${reduced_types[@]}"; do
-            # mpirun -np 3 ./ompcluster/main_no_datamap -steps $steps -type $t $compute_bound
-        done
+        # for t in "${reduced_types[@]}"; do
+        #     mpirun -np 3 ./ompcluster/main_no_datamap -steps $steps -type $t $compute_bound
+        # done
     else
         for t in "${basic_types[@]}"; do
             for k in "${kernels[@]}"; do
@@ -96,9 +96,9 @@ if [[ $USE_OMPCLUSTER -eq 1 ]]; then
                 mpirun -np 4 ./ompcluster/main -steps $steps -type $t $k
             done
         done
-        for t in "${reduced_types[@]}"; do
-            # mpirun -np 3 ./ompcluster/main_no_datamap -steps $steps -type $t $compute_bound
-        done
+        # for t in "${reduced_types[@]}"; do
+        #     mpirun -np 3 ./ompcluster/main_no_datamap -steps $steps -type $t $compute_bound
+        # done
     fi
 fi
 
