@@ -87,7 +87,7 @@ if [[ $USE_OMPCLUSTER -eq 1 ]]; then
             done
         done
         for t in "${reduced_types[@]}"; do
-            mpirun -np 3 ./ompcluster/main_no_datamap -steps $steps -type $t $compute_bound
+            # mpirun -np 3 ./ompcluster/main_no_datamap -steps $steps -type $t $compute_bound
         done
     else
         for t in "${basic_types[@]}"; do
@@ -97,7 +97,7 @@ if [[ $USE_OMPCLUSTER -eq 1 ]]; then
             done
         done
         for t in "${reduced_types[@]}"; do
-            mpirun -np 3 ./ompcluster/main_no_datamap -steps $steps -type $t $compute_bound
+            # mpirun -np 3 ./ompcluster/main_no_datamap -steps $steps -type $t $compute_bound
         done
     fi
 fi
