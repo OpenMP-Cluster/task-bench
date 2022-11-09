@@ -2,8 +2,8 @@ DEBUG ?= 0
 
 ## -fopenmp-targets=x86_64-pc-linux-mpi mpirun -np 2
 ## gdb ./main lldb
-CXXFLAGS = -fopenmp -fopenmp-targets=x86_64-pc-linux-gnu -v
-LDFLAGS  = -fopenmp -fopenmp-targets=x86_64-pc-linux-gnu -v
+CXXFLAGS = -fopenmp -fopenmp-targets=x86_64-pc-linux-gnu -fno-openmp-new-driver
+LDFLAGS  = -fopenmp -fopenmp-targets=x86_64-pc-linux-gnu -fno-openmp-new-driver
 
 ifeq ($(strip $(DEBUG)),1)
 CXXFLAGS += -g -O0
