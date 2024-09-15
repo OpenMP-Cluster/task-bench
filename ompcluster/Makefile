@@ -5,11 +5,11 @@ CUDA ?= 0
 ## gdb ./main lldb
 
 ifeq ($(strip $(CUDA)),1)
-CXXFLAGS = -fopenmp -fopenmp-targets=nvptx64-nvidia-cuda -v
-LDFLAGS  = -fopenmp -fopenmp-targets=nvptx64-nvidia-cuda -v
+CXXFLAGS = -fopenmp -fopenmp-targets=nvptx64-nvidia-cuda
+LDFLAGS  = -fopenmp -fopenmp-targets=nvptx64-nvidia-cuda
 else
-CXXFLAGS = -fopenmp -fopenmp-targets=x86_64-pc-linux-gnu -v
-LDFLAGS  = -fopenmp -fopenmp-targets=x86_64-pc-linux-gnu -v
+CXXFLAGS = -fopenmp -fopenmp-targets=x86_64-pc-linux-gnu
+LDFLAGS  = -fopenmp -fopenmp-targets=x86_64-pc-linux-gnu
 endif
 
 ifeq ($(strip $(DEBUG)),1)

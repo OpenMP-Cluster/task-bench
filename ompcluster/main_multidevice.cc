@@ -60,11 +60,21 @@ struct device_pool_t {
   int current_device;
 
   device_pool_t():
-    num_devices(omp_get_num_devices()), current_device(-1) {}
+    num_devices(omp_get_num_devices()), current_device(-4) {}
 
-  int get_next_device() {
-    current_device = (current_device + 1) % num_devices;
+  int get_next_device_rr() {
+    // Get a device using round-robin strategy
+    current_device = (current_device + 4) % num_devices;
     return current_device;
+  }
+
+  int get_device(int x, int y) {
+    // Currently, each node expose 4 CPU device to MPI Plugin
+    // but it should be only 1
+    // TODO: Fix device count problem on MPI Proxy Plugin
+    // TODO: Improve this function to schedule the task
+    // to the best possible device using 2D coordinate
+    return (x*4 % (num_devices - 4));
   }
 };
 
@@ -195,7 +205,7 @@ int main(int argc, char ** argv)
           char *output_ptr = (char*)tile_in0->output_buff;
 
           // Get the id of the next device available to execute the task
-          int device_id = device_pool.get_next_device();
+          int device_id = device_pool.get_device(x0, y0);
 
           // Depending on the number of dependencies
           switch(num_args)
@@ -203,9 +213,9 @@ int main(int argc, char ** argv)
             case 1:
             {
               #pragma omp target nowait \
-                depend(inout:mat[point0])                     \
-                firstprivate(graph,num_args,x0,y0)                     \
-                map(tofrom: output_ptr[:graph.output_bytes_per_task])  \
+                depend(inout: output_ptr)\
+                firstprivate(graph,num_args,x0,y0)\
+                map(tofrom: output_ptr[:graph.output_bytes_per_task])\
                 device(device_id)
               {
                 char * input_ptrs[num_args];
@@ -223,13 +233,13 @@ int main(int argc, char ** argv)
 
               // Pragma to send the task a node to execute it
               #pragma omp target nowait \
-                depend(inout:mat[point0])                     \
-                depend(in: mat[point1])                       \
-                firstprivate(graph,num_args,x0,y0)                        \
+                depend(inout: output_ptr)\
+                depend(in: input_ptr0)\
+                firstprivate(graph,num_args,x0,y0)\
                 map(to:input_ptr0[:graph.output_bytes_per_task])\
-                map(tofrom: output_ptr[:graph.output_bytes_per_task])  \
+                map(tofrom: output_ptr[:graph.output_bytes_per_task])\
                 device(device_id)
-              {                  
+              {            
                 // Join the input data into a single variable
                 char * input_ptrs[num_args-1];
                 input_ptrs[0] = input_ptr0;
@@ -250,15 +260,15 @@ int main(int argc, char ** argv)
               char *input_ptr1 = (char*)tile_in2->output_buff;
 
               #pragma omp target nowait \
-                depend(inout:mat[point0])                     \
-                depend(in: mat[point1])                       \
-                depend(in: mat[point2])                       \
-                firstprivate(graph,num_args,x0,y0)                 \
-                map(to:input_ptr0[:graph.output_bytes_per_task],\
+                depend(inout: output_ptr)\
+                depend(in: input_ptr0)\
+                depend(in: input_ptr1)\
+                firstprivate(graph,num_args,x0,y0)\
+                map(to: input_ptr0[:graph.output_bytes_per_task],\
                        input_ptr1[:graph.output_bytes_per_task])\
-                map(tofrom: output_ptr[:graph.output_bytes_per_task])  \
+                map(tofrom: output_ptr[:graph.output_bytes_per_task])\
                 device(device_id)
-              {                  
+              {                 
                 char * input_ptrs[num_args-1];
                 input_ptrs[0] = input_ptr0;
                 input_ptrs[1] = input_ptr1;
@@ -281,17 +291,17 @@ int main(int argc, char ** argv)
               char *input_ptr2 = (char*)tile_in3->output_buff;
 
               #pragma omp target nowait \
-                depend(inout:mat[point0])                     \
-                depend(in: mat[point1])                       \
-                depend(in: mat[point2])                       \
-                depend(in: mat[point3])                       \
-                firstprivate(graph,num_args,x0,y0)                                     \
-                map(to:input_ptr0[:graph.output_bytes_per_task],\
+                depend(inout: output_ptr)\
+                depend(in: input_ptr0)\
+                depend(in: input_ptr1)\
+                depend(in: input_ptr2)\
+                firstprivate(graph,num_args,x0,y0)\
+                map(to: input_ptr0[:graph.output_bytes_per_task],\
                        input_ptr1[:graph.output_bytes_per_task],\
                        input_ptr2[:graph.output_bytes_per_task])\
-                map(tofrom: output_ptr[:graph.output_bytes_per_task])  \
+                map(tofrom: output_ptr[:graph.output_bytes_per_task])\
                 device(device_id)
-              {                  
+              {                
                 char * input_ptrs[num_args-1];
                 input_ptrs[0] = input_ptr0;
                 input_ptrs[1] = input_ptr1;
@@ -318,19 +328,19 @@ int main(int argc, char ** argv)
               char *input_ptr3 = (char*)tile_in4->output_buff;
 
               #pragma omp target nowait \
-                depend(inout:mat[point0])                     \
-                depend(in: mat[point1])                       \
-                depend(in: mat[point2])                       \
-                depend(in: mat[point3])                       \
-                depend(in: mat[point4])                       \
-                firstprivate(graph,num_args,x0,y0)                              \
-                map(to:input_ptr0[:graph.output_bytes_per_task],\
+                depend(inout: output_ptr)\
+                depend(in: input_ptr0)\
+                depend(in: input_ptr1)\
+                depend(in: input_ptr2)\
+                depend(in: input_ptr3)\
+                firstprivate(graph,num_args,x0,y0)\
+                map(to: input_ptr0[:graph.output_bytes_per_task],\
                         input_ptr1[:graph.output_bytes_per_task],\
                         input_ptr2[:graph.output_bytes_per_task],\
                         input_ptr3[:graph.output_bytes_per_task])\
-                map(tofrom: output_ptr[:graph.output_bytes_per_task])  \
+                map(tofrom: output_ptr[:graph.output_bytes_per_task])\
                 device(device_id)
-              {                  
+              {
                 char * input_ptrs[num_args-1];
                 input_ptrs[0] = input_ptr0;
                 input_ptrs[1] = input_ptr1;
@@ -361,21 +371,21 @@ int main(int argc, char ** argv)
               char *input_ptr4 = (char*)tile_in5->output_buff;
 
               #pragma omp target nowait \
-                depend(inout:mat[point0])                     \
-                depend(in: mat[point1])                       \
-                depend(in: mat[point2])                       \
-                depend(in: mat[point3])                       \
-                depend(in: mat[point4])                       \
-                depend(in: mat[point5])                       \
-                firstprivate(graph,num_args,x0,y0)                       \
-                map(to:input_ptr0[:graph.output_bytes_per_task],\
+                depend(inout: output_ptr)\
+                depend(in: input_ptr0)\
+                depend(in: input_ptr1)\
+                depend(in: input_ptr2)\
+                depend(in: input_ptr3)\
+                depend(in: input_ptr4)\
+                firstprivate(graph,num_args,x0,y0)\
+                map(to: input_ptr0[:graph.output_bytes_per_task],\
                         input_ptr1[:graph.output_bytes_per_task],\
                         input_ptr2[:graph.output_bytes_per_task],\
                         input_ptr3[:graph.output_bytes_per_task],\
                         input_ptr4[:graph.output_bytes_per_task])\
-                map(tofrom: output_ptr[:graph.output_bytes_per_task])  \
+                map(tofrom: output_ptr[:graph.output_bytes_per_task])\
                 device(device_id)
-              {                  
+              {           
                 char * input_ptrs[num_args-1];
                 input_ptrs[0] = input_ptr0;
                 input_ptrs[1] = input_ptr1;
@@ -410,23 +420,23 @@ int main(int argc, char ** argv)
               char *input_ptr5 = (char*)tile_in6->output_buff;
 
               #pragma omp target nowait \
-                depend(inout:mat[point0])                     \
-                depend(in: mat[point1])                       \
-                depend(in: mat[point2])                       \
-                depend(in: mat[point3])                       \
-                depend(in: mat[point4])                       \
-                depend(in: mat[point5])                       \
-                depend(in: mat[point6])                       \
-                firstprivate(graph,num_args,x0,y0)                \
-                map(to:input_ptr0[:graph.output_bytes_per_task],\
+                depend(inout: output_ptr)\
+                depend(in: input_ptr0)\
+                depend(in: input_ptr1)\
+                depend(in: input_ptr2)\
+                depend(in: input_ptr3)\
+                depend(in: input_ptr4)\
+                depend(in: input_ptr5)\
+                firstprivate(graph,num_args,x0,y0)\
+                map(to: input_ptr0[:graph.output_bytes_per_task],\
                         input_ptr1[:graph.output_bytes_per_task],\
                         input_ptr2[:graph.output_bytes_per_task],\
                         input_ptr3[:graph.output_bytes_per_task],\
                         input_ptr4[:graph.output_bytes_per_task],\
                         input_ptr5[:graph.output_bytes_per_task])\
-                map(tofrom: output_ptr[:graph.output_bytes_per_task])  \
+                map(tofrom: output_ptr[:graph.output_bytes_per_task])\
                 device(device_id)
-              {                  
+              {           
                 char * input_ptrs[num_args-1];
                 input_ptrs[0] = input_ptr0;
                 input_ptrs[1] = input_ptr1;
@@ -465,25 +475,25 @@ int main(int argc, char ** argv)
               char *input_ptr6 = (char*)tile_in7->output_buff;
 
               #pragma omp target nowait \
-                depend(inout:mat[point0])                     \
-                depend(in: mat[point1])                       \
-                depend(in: mat[point2])                       \
-                depend(in: mat[point3])                       \
-                depend(in: mat[point4])                       \
-                depend(in: mat[point5])                       \
-                depend(in: mat[point6])                       \
-                depend(in: mat[point7])                       \
-                firstprivate(graph,num_args,x0,y0)                                     \
-                map(to:input_ptr0[:graph.output_bytes_per_task],\
+                depend(inout: output_ptr)\
+                depend(in: input_ptr0)\
+                depend(in: input_ptr1)\
+                depend(in: input_ptr2)\
+                depend(in: input_ptr3)\
+                depend(in: input_ptr4)\
+                depend(in: input_ptr5)\
+                depend(in: input_ptr6)\
+                firstprivate(graph,num_args,x0,y0)\
+                map(to: input_ptr0[:graph.output_bytes_per_task],\
                         input_ptr1[:graph.output_bytes_per_task],\
                         input_ptr2[:graph.output_bytes_per_task],\
                         input_ptr3[:graph.output_bytes_per_task],\
                         input_ptr4[:graph.output_bytes_per_task],\
                         input_ptr5[:graph.output_bytes_per_task],\
                         input_ptr6[:graph.output_bytes_per_task])\
-                map(tofrom: output_ptr[:graph.output_bytes_per_task])  \
+                map(tofrom: output_ptr[:graph.output_bytes_per_task])\
                 device(device_id)
-              {                  
+              {     
                 char * input_ptrs[num_args-1];
                 input_ptrs[0] = input_ptr0;
                 input_ptrs[1] = input_ptr1;
@@ -526,17 +536,17 @@ int main(int argc, char ** argv)
               char *input_ptr7 = (char*)tile_in8->output_buff;
 
               #pragma omp target nowait \
-                depend(inout:mat[point0])                     \
-                depend(in: mat[point1])                       \
-                depend(in: mat[point2])                       \
-                depend(in: mat[point3])                       \
-                depend(in: mat[point4])                       \
-                depend(in: mat[point5])                       \
-                depend(in: mat[point6])                       \
-                depend(in: mat[point7])                       \
-                depend(in: mat[point8])                       \
-                firstprivate(graph,num_args,x0,y0)                              \
-                map(to:input_ptr0[:graph.output_bytes_per_task],\
+                depend(inout: output_ptr)\
+                depend(in: input_ptr0)\
+                depend(in: input_ptr1)\
+                depend(in: input_ptr2)\
+                depend(in: input_ptr3)\
+                depend(in: input_ptr4)\
+                depend(in: input_ptr5)\
+                depend(in: input_ptr6)\
+                depend(in: input_ptr7)\
+                firstprivate(graph,num_args,x0,y0)\
+                map(to: input_ptr0[:graph.output_bytes_per_task],\
                         input_ptr1[:graph.output_bytes_per_task],\
                         input_ptr2[:graph.output_bytes_per_task],\
                         input_ptr3[:graph.output_bytes_per_task],\
@@ -544,9 +554,9 @@ int main(int argc, char ** argv)
                         input_ptr5[:graph.output_bytes_per_task],\
                         input_ptr6[:graph.output_bytes_per_task],\
                         input_ptr7[:graph.output_bytes_per_task])\
-                map(tofrom: output_ptr[:graph.output_bytes_per_task])  \
+                map(tofrom: output_ptr[:graph.output_bytes_per_task])\
                 device(device_id)
-              {                  
+              {       
                 char * input_ptrs[num_args-1];
                 input_ptrs[0] = input_ptr0;
                 input_ptrs[1] = input_ptr1;
@@ -593,18 +603,18 @@ int main(int argc, char ** argv)
               char *input_ptr8 = (char*)tile_in9->output_buff;
 
               #pragma omp target nowait \
-                depend(inout:mat[point0])                     \
-                depend(in: mat[point1])                       \
-                depend(in: mat[point2])                       \
-                depend(in: mat[point3])                       \
-                depend(in: mat[point4])                       \
-                depend(in: mat[point5])                       \
-                depend(in: mat[point6])                       \
-                depend(in: mat[point7])                       \
-                depend(in: mat[point8])                       \
-                depend(in: mat[point9])                       \
-                firstprivate(graph,num_args,x0,y0)                       \
-                map(to:input_ptr0[:graph.output_bytes_per_task],\
+                depend(inout: output_ptr)\
+                depend(in: input_ptr0)\
+                depend(in: input_ptr1)\
+                depend(in: input_ptr2)\
+                depend(in: input_ptr3)\
+                depend(in: input_ptr4)\
+                depend(in: input_ptr5)\
+                depend(in: input_ptr6)\
+                depend(in: input_ptr7)\
+                depend(in: input_ptr8)\
+                firstprivate(graph,num_args,x0,y0)\
+                map(to: input_ptr0[:graph.output_bytes_per_task],\
                         input_ptr1[:graph.output_bytes_per_task],\
                         input_ptr2[:graph.output_bytes_per_task],\
                         input_ptr3[:graph.output_bytes_per_task],\
@@ -613,9 +623,9 @@ int main(int argc, char ** argv)
                         input_ptr6[:graph.output_bytes_per_task],\
                         input_ptr7[:graph.output_bytes_per_task],\
                         input_ptr8[:graph.output_bytes_per_task])\
-                map(tofrom: output_ptr[:graph.output_bytes_per_task])  \
+                map(tofrom: output_ptr[:graph.output_bytes_per_task])\
                 device(device_id)
-              {                  
+              {        
                 char * input_ptrs[num_args-1];
                 input_ptrs[0] = input_ptr0;
                 input_ptrs[1] = input_ptr1;
