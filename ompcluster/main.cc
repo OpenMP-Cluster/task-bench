@@ -127,7 +127,8 @@ int main(int argc, char ** argv)
   #pragma omp parallel
   #pragma omp master
   {
-    // Transfer the graph data
+    __kmpc_start_record_task(nullptr, 0, 0,0);  
+  // Transfer the graph data
     #pragma omp target enter data nowait                                       \
         map(to: graphs_array[:graphs.size()])                                  \
         depend(out: *graphs_array)
@@ -604,8 +605,9 @@ int main(int argc, char ** argv)
     #pragma omp target exit data nowait                                        \
               map(release: graphs_array[:graphs.size()])                       \
               depend(inout: *graphs_array)
+  __kmpc_end_record_task(nullptr,0,0,0); 
   }
-    double end_loop = omp_get_wtime();
+  double end_loop = omp_get_wtime();
   double elapsed_loop = end_loop - start_loop;
   printf("Loop %d : Elapsed time : %f\n",loop, elapsed_loop);
   }

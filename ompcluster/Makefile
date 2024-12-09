@@ -15,11 +15,11 @@ endif
 
 # Include directories
 INC        = -I../core
-INC_EXT    =
+INC_EXT    = -I/llvm/llvm-project/build/projects/openmp/runtime/src
 
 # Location of the libraries.
 LIB        = -L../core -lcore_s
-LIB_EXT    =
+LIB_EXT    = -L/llvm/llvm-project/build/lib
 
 INC := $(INC) $(INC_EXT)
 LIB := $(LIB) $(LIB_EXT)
