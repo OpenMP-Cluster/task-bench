@@ -120,7 +120,10 @@ int main(int argc, char ** argv)
 
   double start = omp_get_wtime(); 
 
-
+ for(int loop =0 ; loop < 5 ; loop ++) {
+ 
+ double start_loop = omp_get_wtime(); 
+ 
   #pragma omp parallel
   #pragma omp master
   {
@@ -602,7 +605,10 @@ int main(int argc, char ** argv)
               map(release: graphs_array[:graphs.size()])                       \
               depend(inout: *graphs_array)
   }
-
+    double end_loop = omp_get_wtime();
+  double elapsed_loop = end_loop - start_loop;
+  printf("Loop %d : Elapsed time : %f\n",loop, elapsed_loop);
+  }
   double end = omp_get_wtime();
   double elapsed = end -start;
   // Show the report of how the implementation was executed
