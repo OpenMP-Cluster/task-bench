@@ -15,6 +15,7 @@
 // Project headers
 #include "core.h"
 #include "timer.h"
+#include "kmp.h"
 
 #define MAX_NUM_ARGS 10
 

@@ -2,8 +2,9 @@ DEBUG ?= 0
 
 ## -fopenmp-targets=x86_64-pc-linux-mpi mpirun -np 2
 ## gdb ./main lldb
-CXXFLAGS = -fopenmp -fopenmp-targets=x86_64-pc-linux-gnu -fno-openmp-new-driver
+CXXFLAGS = -fopenmp -fopenmp-targets=x86_64-pc-linux-gnu -fno-openmp-new-driver 
 LDFLAGS  = -fopenmp -fopenmp-targets=x86_64-pc-linux-gnu -fno-openmp-new-driver
+# `/llvm/installs/improv-137-tdg-rebase-v3/debug/bin/llvm-config --cxxflags --ldflags --libs core executionengine`
 
 ifeq ($(strip $(DEBUG)),1)
 CXXFLAGS += -g -O0
@@ -14,17 +15,17 @@ LDFLAGS  += -O3
 endif
 
 # Include directories
-INC        = -I../core
-INC_EXT    = -I/llvm/llvm-project/build/projects/openmp/runtime/src
+INC        = -I../core -I/llvm/llvm-project/openmp/runtime/src
+INC_EXT    = 
 
 # Location of the libraries.
-LIB        = -L../core -lcore_s
-LIB_EXT    = -L/llvm/llvm-project/build/lib
+LIB        = -L../core -lcore_s 
+LIB_EXT    = 
 
 INC := $(INC) $(INC_EXT)
 LIB := $(LIB) $(LIB_EXT)
 
-CXXFLAGS += $(INC)
+CXXFLAGS += $(INC) 
 
 include ../core/make_blas.mk
 
