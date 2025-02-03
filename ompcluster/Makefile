@@ -4,7 +4,7 @@ DEBUG ?= 0
 ## gdb ./main lldb
 CXXFLAGS = -fopenmp -fopenmp-targets=x86_64-pc-linux-gnu -fno-openmp-new-driver 
 LDFLAGS  = -fopenmp -fopenmp-targets=x86_64-pc-linux-gnu -fno-openmp-new-driver
-# `/llvm/installs/improv-137-tdg-rebase-v3/debug/bin/llvm-config --cxxflags --ldflags --libs core executionengine`
+
 
 ifeq ($(strip $(DEBUG)),1)
 CXXFLAGS += -g -O0
@@ -15,7 +15,7 @@ LDFLAGS  += -O3
 endif
 
 # Include directories
-INC        = -I../core -I/llvm/llvm-project/openmp/runtime/src
+INC        = -I../core -I/${CI_PROJECT_DIR}/llvm-project/openmp/runtime/src
 INC_EXT    = 
 
 # Location of the libraries.

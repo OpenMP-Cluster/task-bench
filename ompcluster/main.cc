@@ -121,7 +121,7 @@ int main(int argc, char ** argv)
 
   double start = omp_get_wtime(); 
 
- for(int loop =0 ; loop < 5 ; loop ++) {
+ for(int loop =0 ; loop < 1 ; loop ++) {
  
  double start_loop = omp_get_wtime(); 
  
