@@ -15,8 +15,17 @@
 // Project headers
 #include "core.h"
 #include "timer.h"
-#include "kmp.h"
+//#include "kmp.h"
 
+typedef int kmp_int32;
+struct ident_t;
+extern "C"{
+ kmp_int32 __kmpc_start_record_task(ident_t *loc, kmp_int32 gtid,
+                                              kmp_int32 input_flags,
+                                              kmp_int32 tdg_id);
+ void __kmpc_end_record_task(ident_t *loc, kmp_int32 gtid,
+                                       kmp_int32 input_flags, kmp_int32 tdg_id);
+}
 #define MAX_NUM_ARGS 10
 
 /*
@@ -121,7 +130,7 @@ int main(int argc, char ** argv)
 
   double start = omp_get_wtime(); 
 
- for(int loop =0 ; loop < 1 ; loop ++) {
+ for(int loop =0 ; loop < 5 ; loop ++) {
  
  double start_loop = omp_get_wtime(); 
  

@@ -15,11 +15,11 @@ LDFLAGS  += -O3
 endif
 
 # Include directories
-INC        = -I../core -I/${CI_PROJECT_DIR}/llvm-project/openmp/runtime/src
+INC        = -I../core 
 INC_EXT    = 
 
 # Location of the libraries.
-LIB        = -L../core -lcore_s 
+LIB        = -L../core -lcore_s
 LIB_EXT    = 
 
 INC := $(INC) $(INC_EXT)
