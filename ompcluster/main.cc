@@ -130,14 +130,11 @@ int main(int argc, char ** argv)
 
   double start = omp_get_wtime(); 
 
-
- 
- double start_loop = omp_get_wtime(); 
- 
   #pragma omp parallel
   #pragma omp master
   {
     for(int loop =0 ; loop < 5 ; loop ++) {
+      double start_loop = omp_get_wtime(); 
     int res = __kmpc_start_record_task(nullptr, 0, 0,0); 
     if(res){ 
   // Transfer the graph data
