@@ -82,7 +82,13 @@ Function to call the kernel to execute the task.
 
 void task_execute(const TaskGraph &graph, int x0, int y0, int num_args,
                   char **input_ptrs, char *output_ptr)
-{
+{ 
+  // Setting up the number of iteration of the taskgraph, default : 5
+  int loop_number = 5;
+  if(char *env_str = std::getenv("OMPCLUSTER_TASKBENCH_ITERATION_NUMBER")) {
+    loop_number = std::stoi(env_str);
+  } 
+
   // Allocate extra memory to run the task
   size_t scratch_bytes = graph.scratch_bytes_per_task;
   auto scratch_buf = std::make_unique<char[]>(scratch_bytes);
@@ -133,7 +139,7 @@ int main(int argc, char ** argv)
   #pragma omp parallel
   #pragma omp master
   {
-    for(int loop =0 ; loop < 5 ; loop ++) {
+    for(int loop = 0 ; loop < loop_number ; loop ++) {
       double start_loop = omp_get_wtime(); 
     int res = __kmpc_start_record_task(nullptr, 0, 0,0); 
     if(res){ 
