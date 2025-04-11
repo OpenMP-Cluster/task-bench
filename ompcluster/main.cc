@@ -82,13 +82,7 @@ Function to call the kernel to execute the task.
 
 void task_execute(const TaskGraph &graph, int x0, int y0, int num_args,
                   char **input_ptrs, char *output_ptr)
-{ 
-  // Setting up the number of iteration of the taskgraph, default : 5
-  int loop_number = 5;
-  if(char *env_str = std::getenv("OMPCLUSTER_TASKBENCH_ITERATION_NUMBER")) {
-    loop_number = std::stoi(env_str);
-  } 
-
+{
   // Allocate extra memory to run the task
   size_t scratch_bytes = graph.scratch_bytes_per_task;
   auto scratch_buf = std::make_unique<char[]>(scratch_bytes);
@@ -114,7 +108,12 @@ int main(int argc, char ** argv)
   // Create the app to store the information of the Task Graphs
   App new_app(argc, argv);  
   std::vector<TaskGraph> graphs = new_app.graphs;
-
+  
+  // Setting up the number of iteration of the taskgraph, default : 5
+  int loop_number = 5;
+  if(char *env_str = std::getenv("OMPCLUSTER_TASKBENCH_ITERATION_NUMBER")) {
+    loop_number = std::stoi(env_str);
+  }
 
   // Create the Task Graphs and the information of each task
   matrix_t *matrix = (matrix_t *)malloc(sizeof(matrix_t) * graphs.size());
