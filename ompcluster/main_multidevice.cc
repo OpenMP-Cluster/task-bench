@@ -60,11 +60,11 @@ struct device_pool_t {
   int current_device;
 
   device_pool_t():
-    num_devices(omp_get_num_devices()), current_device(-4) {}
+    num_devices(omp_get_num_devices()), current_device(-1) {}
 
   int get_next_device_rr() {
     // Get a device using round-robin strategy
-    current_device = (current_device + 4) % num_devices;
+    current_device = (current_device + 1) % num_devices;
     return current_device;
   }
 
@@ -74,7 +74,7 @@ struct device_pool_t {
     // TODO: Fix device count problem on MPI Proxy Plugin
     // TODO: Improve this function to schedule the task
     // to the best possible device using 2D coordinate
-    return (x*4 % (num_devices - 4));
+    return (x % (num_devices));
   }
 };
 
@@ -214,7 +214,6 @@ int main(int argc, char ** argv)
             {
               #pragma omp target nowait \
                 depend(inout: output_ptr)\
-                firstprivate(graph,num_args,x0,y0)\
                 map(tofrom: output_ptr[:graph.output_bytes_per_task])\
                 device(device_id)
               {
@@ -235,7 +234,6 @@ int main(int argc, char ** argv)
               #pragma omp target nowait \
                 depend(inout: output_ptr)\
                 depend(in: input_ptr0)\
-                firstprivate(graph,num_args,x0,y0)\
                 map(to:input_ptr0[:graph.output_bytes_per_task])\
                 map(tofrom: output_ptr[:graph.output_bytes_per_task])\
                 device(device_id)
@@ -263,7 +261,6 @@ int main(int argc, char ** argv)
                 depend(inout: output_ptr)\
                 depend(in: input_ptr0)\
                 depend(in: input_ptr1)\
-                firstprivate(graph,num_args,x0,y0)\
                 map(to: input_ptr0[:graph.output_bytes_per_task],\
                        input_ptr1[:graph.output_bytes_per_task])\
                 map(tofrom: output_ptr[:graph.output_bytes_per_task])\
@@ -295,7 +292,6 @@ int main(int argc, char ** argv)
                 depend(in: input_ptr0)\
                 depend(in: input_ptr1)\
                 depend(in: input_ptr2)\
-                firstprivate(graph,num_args,x0,y0)\
                 map(to: input_ptr0[:graph.output_bytes_per_task],\
                        input_ptr1[:graph.output_bytes_per_task],\
                        input_ptr2[:graph.output_bytes_per_task])\
@@ -333,7 +329,6 @@ int main(int argc, char ** argv)
                 depend(in: input_ptr1)\
                 depend(in: input_ptr2)\
                 depend(in: input_ptr3)\
-                firstprivate(graph,num_args,x0,y0)\
                 map(to: input_ptr0[:graph.output_bytes_per_task],\
                         input_ptr1[:graph.output_bytes_per_task],\
                         input_ptr2[:graph.output_bytes_per_task],\
@@ -377,7 +372,6 @@ int main(int argc, char ** argv)
                 depend(in: input_ptr2)\
                 depend(in: input_ptr3)\
                 depend(in: input_ptr4)\
-                firstprivate(graph,num_args,x0,y0)\
                 map(to: input_ptr0[:graph.output_bytes_per_task],\
                         input_ptr1[:graph.output_bytes_per_task],\
                         input_ptr2[:graph.output_bytes_per_task],\
@@ -427,7 +421,6 @@ int main(int argc, char ** argv)
                 depend(in: input_ptr3)\
                 depend(in: input_ptr4)\
                 depend(in: input_ptr5)\
-                firstprivate(graph,num_args,x0,y0)\
                 map(to: input_ptr0[:graph.output_bytes_per_task],\
                         input_ptr1[:graph.output_bytes_per_task],\
                         input_ptr2[:graph.output_bytes_per_task],\
@@ -483,7 +476,6 @@ int main(int argc, char ** argv)
                 depend(in: input_ptr4)\
                 depend(in: input_ptr5)\
                 depend(in: input_ptr6)\
-                firstprivate(graph,num_args,x0,y0)\
                 map(to: input_ptr0[:graph.output_bytes_per_task],\
                         input_ptr1[:graph.output_bytes_per_task],\
                         input_ptr2[:graph.output_bytes_per_task],\
@@ -545,7 +537,6 @@ int main(int argc, char ** argv)
                 depend(in: input_ptr5)\
                 depend(in: input_ptr6)\
                 depend(in: input_ptr7)\
-                firstprivate(graph,num_args,x0,y0)\
                 map(to: input_ptr0[:graph.output_bytes_per_task],\
                         input_ptr1[:graph.output_bytes_per_task],\
                         input_ptr2[:graph.output_bytes_per_task],\
@@ -613,7 +604,6 @@ int main(int argc, char ** argv)
                 depend(in: input_ptr6)\
                 depend(in: input_ptr7)\
                 depend(in: input_ptr8)\
-                firstprivate(graph,num_args,x0,y0)\
                 map(to: input_ptr0[:graph.output_bytes_per_task],\
                         input_ptr1[:graph.output_bytes_per_task],\
                         input_ptr2[:graph.output_bytes_per_task],\
