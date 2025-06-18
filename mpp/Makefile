@@ -35,7 +35,7 @@ CXXFLAGS += $(INC)
 
 include ../core/make_blas.mk
 
-TARGET = main
+TARGET = main main_buffer
 all: $(TARGET)
 
 .PRECIOUS: %.cc %.o
@@ -44,6 +44,12 @@ main.o: main.cc ../core/timer.h
 	$(CXX) -c $(CXXFLAGS) $<
 
 main: main.o
+	$(CXX) $^ $(LIB) $(LDFLAGS) -o $@
+
+main_buffer.o: main_buffer.cc ../core/timer.h
+	$(CXX) -c $(CXXFLAGS) $<
+
+main_buffer: main_buffer.o
 	$(CXX) $^ $(LIB) $(LDFLAGS) -o $@
 
 clean:
