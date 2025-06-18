@@ -233,6 +233,11 @@ if [[ $USE_OMPCLUSTER -eq 1 ]]; then
     make -C ompcluster -j$THREADS
 fi
 
+if [[ $USE_MPP -eq 1 ]]; then
+    make -C mpp clean
+    make -C mpp -j$THREADS
+fi
+
 if [[ $USE_OMPSS -eq 1 ]]; then
     pushd "$NANOS_SRC_DIR"
     if [[ ! -d build ]]; then

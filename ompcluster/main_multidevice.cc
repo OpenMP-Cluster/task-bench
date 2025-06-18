@@ -150,7 +150,7 @@ int main(int argc, char ** argv)
   double start = omp_get_wtime(); 
 
   // Run the task graph in parallel
-  #pragma omp parallel
+  #pragma omp parallel num_threads(omp_get_num_devices()+1)
   #pragma omp master
   {
     for (unsigned graph_idx = 0; graph_idx < graphs.size(); graph_idx++) {
