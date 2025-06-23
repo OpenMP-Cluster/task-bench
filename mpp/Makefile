@@ -35,7 +35,7 @@ CXXFLAGS += $(INC)
 
 include ../core/make_blas.mk
 
-TARGET = main main_buffer
+TARGET = main main_buffer main_gpu
 all: $(TARGET)
 
 .PRECIOUS: %.cc %.o
@@ -51,6 +51,12 @@ main_buffer.o: main_buffer.cc ../core/timer.h
 
 main_buffer: main_buffer.o
 	$(CXX) $^ $(LIB) $(LDFLAGS) -o $@
+
+main_gpu.o: main_gpu.cc ../core/timer.h
+	$(CXX) -c $(CXXFLAGS) -foffload-lto -g $<
+
+main_gpu: main_gpu.o
+	$(CXX) $^ $(LIB) $(LDFLAGS) -foffload-lto -g -o $@
 
 clean:
 	rm -f *.o

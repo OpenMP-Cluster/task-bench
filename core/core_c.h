@@ -47,6 +47,7 @@ typedef enum kernel_type_t {
   MEMORY_DAXPY,
   COMPUTE_BOUND,
   COMPUTE_BOUND2,
+  COMPUTE_BOUND_GPU,
   IO_BOUND,
   LOAD_IMBALANCE,
 } kernel_type_t;
@@ -84,6 +85,8 @@ typedef struct task_graph_t {
   size_t output_bytes_per_task;
   size_t scratch_bytes_per_task;
   int nb_fields;
+  int nblocks;
+  int tpblock;
 } task_graph_t;
 
 long task_graph_offset_at_timestep(task_graph_t graph, long timestep);

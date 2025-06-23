@@ -235,7 +235,12 @@ fi
 
 if [[ $USE_MPP -eq 1 ]]; then
     make -C mpp clean
-    make -C mpp -j$THREADS
+    if [[ $USE_MPP_GPU -eq 1 ]]; then
+        export CUDA=1
+        make -C mpp main_gpu -j$THREADS
+    else
+        make -C mpp -j$THREADS
+    fi
 fi
 
 if [[ $USE_OMPSS -eq 1 ]]; then

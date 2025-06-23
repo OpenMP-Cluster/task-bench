@@ -69,6 +69,9 @@ void Kernel::execute(long graph_index, long timestep, long point,
   case KernelType::COMPUTE_BOUND2:
     execute_kernel_compute2(*this);
     break;
+  case KernelType::COMPUTE_BOUND_GPU:
+    execute_kernel_compute(*this);
+    break;
   case KernelType::IO_BOUND:
     execute_kernel_io(*this);
     break;
@@ -89,6 +92,7 @@ static const std::map<std::string, KernelType> ktype_by_name = {
   {"memory_daxpy", KernelType::MEMORY_DAXPY},
   {"compute_bound", KernelType::COMPUTE_BOUND},
   {"compute_bound2", KernelType::COMPUTE_BOUND2},
+  {"compute_bound_gpu", KernelType::COMPUTE_BOUND_GPU},
   {"io_bound", KernelType::IO_BOUND},
   {"load_imbalance", KernelType::LOAD_IMBALANCE},
 };
@@ -643,7 +647,8 @@ static TaskGraph default_graph(long graph_index)
   graph.output_bytes_per_task = sizeof(std::pair<long, long>);
   graph.scratch_bytes_per_task = 0;
   graph.nb_fields = 0;
-  
+  graph.nblocks = 1;
+  graph.tpblock = 32;
   return graph;
 }
 
@@ -668,6 +673,9 @@ static void needs_argument(int i, int argc, const char *flag) {
 #define SCRATCH_FLAG "-scratch"
 #define SAMPLE_FLAG "-sample"
 #define IMBALANCE_FLAG "-imbalance"
+
+#define NBLOCK_FLAG "-nblocks"
+#define TPBLOCK_FLAG "-tpblock"
 
 #define SKIP_GRAPH_VALIDATION_FLAG "-skip-graph-validation"
 #define FIELD_FLAG "-field"
@@ -870,6 +878,26 @@ App::App(int argc, char **argv)
       graph.nb_fields = value;
     }
 
+    if (!strcmp(argv[i], NBLOCK_FLAG)) {
+      needs_argument(i, argc, NBLOCK_FLAG);
+      int value = atoi(argv[++i]);
+      if (value <= 0) {
+        fprintf(stderr, "error: Invalid flag \"" NBLOCK_FLAG " %d\" must be > 1\n", value);
+        abort();
+      }
+      graph.nblocks = value;
+    }
+
+    if (!strcmp(argv[i], TPBLOCK_FLAG)) {
+      needs_argument(i, argc, TPBLOCK_FLAG);
+      int value = atoi(argv[++i]);
+      if (value <= 0) {
+        fprintf(stderr, "error: Invalid flag \"" TPBLOCK_FLAG " %d\" must be > 1\n", value);
+        abort();
+      }
+      graph.tpblock = value;
+    }
+
     if (!strcmp(argv[i], AND_FLAG)) {
       // Hack: set default value of period for random graph
       if (graph.period < 0) {
@@ -1061,6 +1089,9 @@ long long count_flops_per_task(const TaskGraph &g, long timestep, long point)
   case KernelType::COMPUTE_BOUND2:
     return 2 * 32 * g.kernel.iterations;
 
+  case KernelType::COMPUTE_BOUND_GPU:
+    return 2 * 16 * g.tpblock * g.nblocks * g.kernel.iterations;
+
   case KernelType::IO_BOUND:
     return 0;
 
@@ -1092,6 +1123,7 @@ long long count_bytes_per_task(const TaskGraph &g, long timestep, long point)
   case KernelType::COMPUTE_DGEMM:
   case KernelType::COMPUTE_BOUND:
   case KernelType::COMPUTE_BOUND2:
+  case KernelType::COMPUTE_BOUND_GPU:
   case KernelType::IO_BOUND:
   case KernelType::LOAD_IMBALANCE:
     return 0;
