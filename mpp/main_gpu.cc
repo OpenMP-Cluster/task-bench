@@ -155,6 +155,7 @@ int main(int argc, char ** argv)
 
     // Minimum number of unique buffers needed to execute a task (conservative choice)
     int num_outputs = 2 * graph.max_width;
+    num_outputs = std::min(num_outputs, number_point);
     int device_id, output_id;
     // Store unique buffers ptrs for this Task Graph
     unique_outputs[i].resize(num_outputs);
@@ -162,14 +163,13 @@ int main(int argc, char ** argv)
     for (int j = 0; j < num_outputs; j++)
       unique_outputs[i][j] = nullptr;
 
-    // #pragma omp num_threads(num_devices)
     for (int j = 0; j < number_point; j++) {
       device_id = j % num_devices;
       output_id = j % num_outputs;
       if (unique_outputs[i][output_id] == nullptr) {
-        unique_outputs[i][output_id] = (char *) omp_target_alloc(sizeof(char) * graph.output_bytes_per_task, j % num_devices);
+        unique_outputs[i][output_id] = (char *) omp_target_alloc(sizeof(char) * graph.output_bytes_per_task, device_id);
       }
-      matrix[i].data[j].device_id = j % num_devices;
+      matrix[i].data[j].device_id = device_id;
       matrix[i].data[j].output_buff = unique_outputs[i][output_id];
     }
   }
@@ -225,8 +225,6 @@ int main(int argc, char ** argv)
           }
           assert(num_args == curr_arg_idx);
 
-          // printf("num_args=%d\n", num_args);
-
           // Calculate the position of the task to execute
           int x0 = args[0].x;
           int y0 = args[0].y;
@@ -245,8 +243,6 @@ int main(int argc, char ** argv)
           unsigned long N = output_size/sizeof(double);
           int block_size = graph.tpblock;
           int num_blocks = graph.nblocks;
-
-          // printf("N=%lu, blocks=%d, threads=%d\n", N, num_blocks, block_size);
 
           // Depending on the number of dependencies
           switch(num_args)
@@ -867,22 +863,14 @@ int main(int argc, char ** argv)
   for (unsigned i = 0; i < graphs.size(); i++) {
     // Minimum number of unique buffers needed to execute a task (conservative choice)
     int num_outputs = 2 * graphs[i].max_width;
-    int device_id, output_id;
+    num_outputs = std::min(num_outputs, matrix[i].M * matrix[i].N);
     for (int j = 0; j < num_outputs; j++)
       omp_target_free(matrix[i].data[j].output_buff, matrix[i].data[j].device_id);
 
-    // #pragma omp num_threads(num_devices)
-    // for (int j = 0; j < matrix[i].M * matrix[i].N; j++) {
-    //   omp_target_free(matrix[i].data[j].output_buff, matrix[i].data[j].device_id);
-    //   matrix[i].data[j].output_buff = NULL;
-    // }
     free(matrix[i].data);
-    // free(unique_outputs[i]);
-    matrix[i].data = NULL;
   }
-  
+
   free(matrix);
-  // free(unique_outputs);
-  matrix = NULL;
+
   return 0;
 }

@@ -1,15 +1,21 @@
 DEBUG ?= 0
-CUDA ?= 0
+CC          ?= clang
+CXX         ?= clang++
+GPU_ARCH	?= gfx942
+USE_MPP_GPU	 	?= 0
+
+CXXFLAGS = -fopenmp -foffload-lto
+LDFLAGS = -fopenmp -foffload-lto
 
 ## -fopenmp-targets=x86_64-pc-linux-mpi mpirun -np 2
 ## gdb ./main lldb
 
-ifeq ($(strip $(CUDA)),1)
-CXXFLAGS = -fopenmp -fopenmp-targets=nvptx64-nvidia-cuda
-LDFLAGS  = -fopenmp -fopenmp-targets=nvptx64-nvidia-cuda
+ifeq ($(strip $(USE_MPP_GPU)),1)
+CXXFLAGS += --offload-arch=$(GPU_ARCH) 
+LDFLAGS  += --offload-arch=$(GPU_ARCH)
 else
-CXXFLAGS = -fopenmp -fopenmp-targets=x86_64-pc-linux-gnu
-LDFLAGS  = -fopenmp -fopenmp-targets=x86_64-pc-linux-gnu
+CXXFLAGS += -fopenmp-targets=x86_64-pc-linux-gnu
+LDFLAGS  += -fopenmp-targets=x86_64-pc-linux-gnu
 endif
 
 ifeq ($(strip $(DEBUG)),1)
@@ -53,10 +59,10 @@ main_buffer: main_buffer.o
 	$(CXX) $^ $(LIB) $(LDFLAGS) -o $@
 
 main_gpu.o: main_gpu.cc ../core/timer.h
-	$(CXX) -c $(CXXFLAGS) -foffload-lto -g $<
+	$(CXX) -c $(CXXFLAGS) $<
 
 main_gpu: main_gpu.o
-	$(CXX) $^ $(LIB) $(LDFLAGS) -foffload-lto -g -o $@
+	$(CXX) $^ $(LIB) $(LDFLAGS) -o $@
 
 clean:
 	rm -f *.o
