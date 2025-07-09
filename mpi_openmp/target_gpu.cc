@@ -20,6 +20,7 @@
 #include "core.h"
 
 #include "mpi.h"
+#include "omp.h"
 
 #define UNROLL_16 16
 
@@ -36,7 +37,7 @@ void task_execute_gpu(long iter, double *A, unsigned long N, int block_size, int
       if (idx < N)
         A_local[u] = A[idx];
       else
-       A_local[u] = 0.0;
+       A_local[u] = 1.2345;
     }
 
     for(long i=0; i < iter; i++) {
@@ -59,12 +60,14 @@ void task_execute_gpu(long iter, double *A, unsigned long N, int block_size, int
 int main(int argc, char *argv[])
 {
   MPI_Init(&argc, &argv);
-  int n_ranks, rank;
+  int n_ranks, rank, num_devices;
   MPI_Comm_size(MPI_COMM_WORLD, &n_ranks);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
   App app(argc, argv);
   if (rank == 0) app.display();
+
+  num_devices = omp_get_num_devices();
 
   std::vector<std::vector<char> > scratch;
   for (auto graph : app.graphs) {
@@ -254,9 +257,10 @@ int main(int argc, char *argv[])
           // auto &point_n_inputs = n_inputs[point_index];
           auto &point_output = outputs[point_index];
           double * output_ptr = (double *) point_output.data();
+          int device_id = rank % num_devices;
 
           #pragma omp target teams num_teams(num_blocks) thread_limit(block_size) \
-                      map(tofrom: output_ptr[:output_size])
+                  map(tofrom: output_ptr[:output_size]) device(device_id)
           task_execute_gpu(iter, output_ptr, N, block_size, num_blocks);
           
         }
