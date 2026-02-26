@@ -144,7 +144,7 @@ int main(int argc, char ** argv)
   // Create the Task Graphs and the information of each task
   matrix_t *matrix = (matrix_t *)malloc(sizeof(matrix_t) * graphs.size());
 
-  std::vector<std::vector<char *>> unique_outputs(graphs.size());
+  // std::vector<std::vector<char *>> unique_outputs(graphs.size());
   std::vector<std::vector<char *>> input_scratch(num_devices);
   std::vector<std::vector<omp_depend_t>> input_dep_scratch(num_devices);
 
@@ -155,9 +155,10 @@ int main(int argc, char ** argv)
   }
 
   for(int dev = 0; dev < num_devices; dev++) {
-    input_scratch[dev].resize(MAX_NUM_ARGS);
-    input_dep_scratch[dev].resize(MAX_NUM_ARGS);
-    for(int i = 0; i < MAX_NUM_ARGS; i++) {
+    TaskGraph &graph = graphs[0];
+    input_scratch[dev].resize(graph.max_width);
+    input_dep_scratch[dev].resize(graph.max_width);
+    for(int i = 0; i < graph.max_width; i++) {
       input_scratch[dev][i] = (char*) omp_target_alloc(max_output_size, dev);
     }
   }
@@ -170,23 +171,25 @@ int main(int argc, char ** argv)
     matrix[i].data = (tile_t*)malloc(sizeof(tile_t) * number_point);
 
     // Minimum number of unique buffers needed to execute a task (conservative choice)
-    int num_outputs = 2 * graph.max_width;
-    num_outputs = std::min(num_outputs, number_point);
+    // int num_outputs = 3 * graph.max_width;
+    // num_outputs = std::min(num_outputs, number_point);
+    int num_outputs = number_point;
     int device_id, output_id;
     // Store unique buffers ptrs for this Task Graph
-    unique_outputs[i].resize(num_outputs);
+    // unique_outputs[i].resize(num_outputs);
 
-    for (int j = 0; j < num_outputs; j++)
-      unique_outputs[i][j] = nullptr;
+    // for (int j = 0; j < num_outputs; j++)
+    //   unique_outputs[i][j] = nullptr;
 
     for (int j = 0; j < number_point; j++) {
       device_id = j % num_devices;
-      output_id = j % num_outputs;
-      if (unique_outputs[i][output_id] == nullptr) {
-        unique_outputs[i][output_id] = (char *) omp_target_alloc(sizeof(char) * graph.output_bytes_per_task, device_id);
-      }
+      // output_id = j % num_outputs;
+      // if (unique_outputs[i][output_id] == nullptr) {
+      //   unique_outputs[i][output_id] = (char *) omp_target_alloc(sizeof(char) * graph.output_bytes_per_task, device_id);
+      // }
       matrix[i].data[j].device_id = device_id;
-      matrix[i].data[j].output_buff = unique_outputs[i][output_id];
+      // matrix[i].data[j].output_buff = unique_outputs[i][output_id];
+      matrix[i].data[j].output_buff = (char *) omp_target_alloc(sizeof(char) * graph.output_bytes_per_task, device_id);
     }
   }
 
@@ -908,8 +911,8 @@ int main(int argc, char ** argv)
 
   // Deallocate input scratchpad
   for(int dev = 0; dev < num_devices; dev++) {
-    input_scratch[dev].resize(MAX_NUM_ARGS);
-    for(int i = 0; i < MAX_NUM_ARGS; i++) {
+    // input_scratch[dev].resize(MAX_NUM_ARGS);
+    for(int i = 0; i < graphs[0].max_width; i++) {
       omp_target_free(input_scratch[dev][i], dev);
     }
   }
@@ -917,8 +920,9 @@ int main(int argc, char ** argv)
   // Deallocate memory block used to storethe information of the Task Graph
   for (unsigned i = 0; i < graphs.size(); i++) {
     // Minimum number of unique buffers needed to execute a task (conservative choice)
-    int num_outputs = 2 * graphs[i].max_width;
-    num_outputs = std::min(num_outputs, matrix[i].M * matrix[i].N);
+    // int num_outputs = 3 * graphs[i].max_width;
+    // num_outputs = std::min(num_outputs, matrix[i].M * matrix[i].N);
+    int num_outputs = matrix[i].M * matrix[i].N;
     for (int j = 0; j < num_outputs; j++)
       omp_target_free(matrix[i].data[j].output_buff, matrix[i].data[j].device_id);
 
