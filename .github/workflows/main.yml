@@ -1,0 +1,67 @@
+name: CI
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: '35 3 * * 2' # once a week on Tuesday
+
+jobs:
+  format:
+    name: Format
+    runs-on: 'ubuntu-24.04'
+    steps:
+      - uses: actions/checkout@v6
+      - run: pip install clang-format ruff
+      - run: clang-format --version
+      - run: ruff --version
+      - run: CHECK_FORMAT=1 ./format.sh
+
+  build:
+    name: Build (${{matrix.system}})
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        include:
+          - system: MPI
+          - system: MPI_OPENMP
+          - system: LEGION
+          # - system: PYGION
+          - system: REGENT
+          - system: REALM
+          - system: STARPU
+            hwloc: 1
+          - system: PARSEC
+            hwloc: 1
+          - system: HPX
+          - system: CHARM
+          - system: CHAPEL
+          - system: X10
+          - system: OPENMP
+          - system: SPARK
+          - system: OMPSS
+            hwloc: 1
+          - system: SWIFT
+          - system: TENSORFLOW
+          - system: DASK
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/cache@v4
+        with:
+          path: deps
+          key: deps-${{ matrix.system }}-${{ hashFiles('get_deps.sh', 'build_all.sh') }}
+      - run: ./ci.sh
+        env:
+          SYSTEM: ${{ matrix.system }}
+          TASKBENCH_USE_HWLOC: ${{ matrix.hwloc }}
+
+          # Global settings:
+          DEBUG: 1
+          # Legion flags
+          # WARN_AS_ERROR: 1
+          REALM_SYNTHETIC_CORE_MAP: ""
+          REALM_BACKTRACE: 1
+          # CC_FLAGS: "-Wno-unused-command-line-argument"
+          # Disable features by default, specify explicit what to use in each build
+          DEFAULT_FEATURES: 0
+        timeout-minutes: 150

@@ -46,8 +46,8 @@ char **extra_local_memory;
 double *timecount;
 double *timecount_all;
 
-typedef struct matrix_s{
-  two_dim_block_cyclic_t dcC;
+typedef struct matrix_s {
+  parsec_matrix_block_cyclic_t dcC;
   int M;
   int N;
   int K;
@@ -185,10 +185,15 @@ ParsecApp::ParsecApp(int argc, char **argv)
                                nodes, rank, mat.MB, mat.NB, mat.M, mat.N, 0, 0,
                                mat.M, mat.N, mat.SMB, mat.SNB, P);
 
-    mat.dcC.mat = parsec_data_allocate((size_t)mat.dcC.super.nb_local_tiles * \
-                                   (size_t)mat.dcC.super.bsiz *      \
-                                   (size_t)parsec_datadist_getsizeoftype(mat.dcC.super.mtype)); \
-    parsec_data_collection_set_key((parsec_data_collection_t*)&(mat.dcC), "dcC"); 
+    parsec_matrix_block_cyclic_init(
+        &mat.dcC, PARSEC_MATRIX_FLOAT, PARSEC_MATRIX_TILE, rank, mat.MB, mat.NB,
+        mat.M, mat.N, 0, 0, mat.M, mat.N, P, Q, mat.SMB, mat.SNB, 0, 0);
+
+    mat.dcC.mat = parsec_data_allocate(
+        (size_t)mat.dcC.super.nb_local_tiles * (size_t)mat.dcC.super.bsiz *
+        (size_t)parsec_datadist_getsizeoftype(mat.dcC.super.mtype));
+    parsec_data_collection_set_key((parsec_data_collection_t *)&(mat.dcC),
+                                   "dcC");
 
     /* For timming */
     timecount = (double *)calloc(cores, sizeof(double));
@@ -196,8 +201,8 @@ ParsecApp::ParsecApp(int argc, char **argv)
         timecount_all = (double *)calloc(nodes*cores, sizeof(double));
 
     /* matrix generation */
-    //dplasma_dplrnt( parsec, 0, (parsec_tiled_matrix_dc_t *)&dcC, Cseed);
-                            
+    // dplasma_dplrnt( parsec, 0, (parsec_tiled_matrix_t *)&dcC, Cseed);
+
     if (graph.scratch_bytes_per_task > max_scratch_bytes_per_task) {
       max_scratch_bytes_per_task = graph.scratch_bytes_per_task;
     }
@@ -262,17 +267,23 @@ void ParsecApp::execute_main_loop()
     debug_printf(0, "rank %d, pid %d, M %d, N %d, MT %d, NT %d, nb_fields %d, timesteps %d\n", rank, getpid(), mat.M, mat.N, mat.MT, mat.NT, nb_fields, g.timesteps);
     
     if (g.dependence == DependenceType::STENCIL_1D) {
-      //parsec_stencil_1d(parsec, (parsec_tiled_matrix_dc_t *)&mat, g, nb_fields, g.timesteps, i, extra_local_memory);
-      tp[i] = parsec_stencil_1d_New((parsec_tiled_matrix_dc_t *)&mat, g, nb_fields, g.timesteps, i, extra_local_memory); 
+      // parsec_stencil_1d(parsec, (parsec_tiled_matrix_t *)&mat, g, nb_fields, g.timesteps, i, extra_local_memory);
+      tp[i] = parsec_stencil_1d_New((parsec_tiled_matrix_t *)&mat, g, nb_fields,
+                                    g.timesteps, i, extra_local_memory);
     } else if (g.dependence == DependenceType::NEAREST && g.radix == 5) {
-      //parsec_nearest_radix_5(parsec, (parsec_tiled_matrix_dc_t *)&mat, g, nb_fields, g.timesteps, i, extra_local_memory);
-      tp[i] = parsec_nearest_radix_5_New((parsec_tiled_matrix_dc_t *)&mat, g, nb_fields, g.timesteps, i, extra_local_memory); 
+      // parsec_nearest_radix_5(parsec, (parsec_tiled_matrix_t *)&mat, g, nb_fields, g.timesteps, i, extra_local_memory);
+      tp[i] = parsec_nearest_radix_5_New((parsec_tiled_matrix_t *)&mat, g,
+                                         nb_fields, g.timesteps, i,
+                                         extra_local_memory);
     } else if (g.dependence == DependenceType::SPREAD && g.radix == 5) {
-      //parsec_spread_radix5_period3(parsec, (parsec_tiled_matrix_dc_t *)&mat, g, nb_fields, g.timesteps, i, extra_local_memory);
-      tp[i] = parsec_spread_radix5_period3_New((parsec_tiled_matrix_dc_t *)&mat, g, nb_fields, g.timesteps, i, extra_local_memory); 
+      // parsec_spread_radix5_period3(parsec, (parsec_tiled_matrix_t *)&mat, g, nb_fields, g.timesteps, i, extra_local_memory);
+      tp[i] = parsec_spread_radix5_period3_New((parsec_tiled_matrix_t *)&mat, g,
+                                               nb_fields, g.timesteps, i,
+                                               extra_local_memory);
     } else {
       assert(0);
-      parsec_benchmark(parsec, (parsec_tiled_matrix_dc_t *)&mat, g, nb_fields, g.timesteps, i, extra_local_memory);
+      parsec_benchmark(parsec, (parsec_tiled_matrix_t *)&mat, g, nb_fields,
+                       g.timesteps, i, extra_local_memory);
     }
     assert(tp[i] != NULL);
     parsec_enqueue(parsec, tp[i]);
