@@ -77,10 +77,19 @@ export USE_SWIFT=${USE_SWIFT:-$DEFAULT_FEATURES}
 export USE_TENSORFLOW=${USE_TENSORFLOW:-$DEFAULT_FEATURES}
 export USE_DASK=${USE_DASK:-$DEFAULT_FEATURES}
 export USE_OMPCLUSTER=${USE_OMPCLUSTER:-$DEFAULT_FEATURES}
+export USE_MPP=${USE_MPP:-$DEFAULT_FEATURES}
 
 EOF
 
 source deps/env.sh
+
+if [[ $USE_MPP_GPU -eq 1 ]]; then
+    cat >>deps/env.sh <<EOF
+export USE_MPP_GPU=${USE_MPP_GPU:-$DEFAULT_FEATURES}
+export GPU_ARCH=${GPU_ARCH:-"sm_86"}
+EOF
+
+fi
 
 # Older Apache releases get cut from the mirrors too aggressively, so
 # in order to have a stable build we need to use the original servers.
