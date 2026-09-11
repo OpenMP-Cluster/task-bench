@@ -50,6 +50,16 @@ struct matrix_t {
   int N;
 };
 
+typedef int kmp_int32;
+struct ident_t;
+extern "C"{
+kmp_int32 __kmpc_start_record_task(ident_t *loc, kmp_int32 gtid,
+                                            kmp_int32 input_flags,
+                                            kmp_int32 tdg_id);
+void __kmpc_end_record_task(ident_t *loc, kmp_int32 gtid,
+                                            kmp_int32 input_flags, kmp_int32 tdg_id);
+}
+
 /*
 Structure to manager the pool of target devices available in the env
 This structure provide a function to get the next device available
@@ -129,6 +139,11 @@ int main(int argc, char ** argv)
   App new_app(argc, argv);  
   std::vector<TaskGraph> graphs = new_app.graphs;
 
+  // Setting up the number of iteration of the taskgraph, default : 5
+  int loop_number = 5;
+  if(char *env_str = std::getenv("OMPCLUSTER_TASKBENCH_ITERATION_NUMBER")) {
+    loop_number = std::stoi(env_str);
+  }
   device_pool_t device_pool;
 
   // Create the Task Graphs and the information of each task
@@ -153,6 +168,10 @@ int main(int argc, char ** argv)
   #pragma omp parallel num_threads(omp_get_num_devices()+1)
   #pragma omp master
   {
+  for(int loop = 0 ; loop < loop_number ; loop ++) {
+    double start_loop = omp_get_wtime();
+    int res = __kmpc_start_record_task(nullptr, 0, 0,0);
+    if(res){
     for (unsigned graph_idx = 0; graph_idx < graphs.size(); graph_idx++) {
       const TaskGraph &graph = graphs[graph_idx];
       tile_t *mat = matrix[graph_idx].data;
@@ -635,6 +654,12 @@ int main(int argc, char ** argv)
           }
         }
       }
+    }
+    }
+  __kmpc_end_record_task(nullptr,0,0,0);
+  double end_loop = omp_get_wtime();
+  double elapsed_loop = end_loop - start_loop;
+  printf("Loop %d : Elapsed time : %f\n",loop, elapsed_loop);
     }
   }
 

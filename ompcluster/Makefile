@@ -1,12 +1,12 @@
 DEBUG ?= 0
-CUDA ?= 0
+CUDA ?= 1
 
 ## -fopenmp-targets=x86_64-pc-linux-mpi mpirun -np 2
 ## gdb ./main lldb
 
 ifeq ($(strip $(CUDA)),1)
-CXXFLAGS = -fopenmp -fopenmp-targets=nvptx64-nvidia-cuda
-LDFLAGS  = -fopenmp -fopenmp-targets=nvptx64-nvidia-cuda
+CXXFLAGS = -fopenmp -fopenmp-targets=nvptx64-nvidia-cuda --offload-arch=sm_60,sm_70
+LDFLAGS  = -fopenmp -fopenmp-targets=nvptx64-nvidia-cuda --offload-arch=sm_60,sm_70
 else
 CXXFLAGS = -fopenmp -fopenmp-targets=x86_64-pc-linux-gnu -fno-openmp-new-driver
 LDFLAGS  = -fopenmp -fopenmp-targets=x86_64-pc-linux-gnu -fno-openmp-new-driver
@@ -35,22 +35,22 @@ CXXFLAGS += $(INC)
 
 include ../core/make_blas.mk
 
-TARGET = main main_no_datamap main_multidevice
+TARGET = main_multidevice
 all: $(TARGET)
 
 .PRECIOUS: %.cc %.o
 
-main.o: main.cc ../core/timer.h
-	$(CXX) -c $(CXXFLAGS) $<
+#main.o: main.cc ../core/timer.h
+#	$(CXX) -c $(CXXFLAGS) $<
 
-main: main.o
-	$(CXX) $^ $(LIB) $(LDFLAGS) -o $@
+#main: main.o
+#	$(CXX) $^ $(LIB) $(LDFLAGS) -o $@
 
-main_no_datamap.o: main_no_datamap.cc ../core/timer.h
-	$(CXX) -c $(CXXFLAGS) $<
+#main_no_datamap.o: main_no_datamap.cc ../core/timer.h
+#	$(CXX) -c $(CXXFLAGS) $<
 
-main_no_datamap: main_no_datamap.o
-	$(CXX) $^ $(LIB) $(LDFLAGS) -o $@
+#main_no_datamap: main_no_datamap.o
+#	$(CXX) $^ $(LIB) $(LDFLAGS) -o $@
 
 main_multidevice.o: main_multidevice.cc ../core/timer.h
 	$(CXX) -c $(CXXFLAGS) $<
