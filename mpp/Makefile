@@ -1,9 +1,12 @@
 DEBUG ?= 0
 CC          ?= clang
 CXX         ?= clang++
-GPU_ARCH	?= gfx942
-USE_MPP_GPU	 	?= 0
+#GPU_ARCH	?= gfx942
+GPU_ARCH	= sm_60
+USE_MPP_GPU	 	?= 1
 
+#CXXFLAGS = -fopenmp 
+#LDFLAGS = -fopenmp 
 CXXFLAGS = -fopenmp -foffload-lto
 LDFLAGS = -fopenmp -foffload-lto
 
@@ -11,8 +14,11 @@ LDFLAGS = -fopenmp -foffload-lto
 ## gdb ./main lldb
 
 ifeq ($(strip $(USE_MPP_GPU)),1)
-CXXFLAGS += --offload-arch=$(GPU_ARCH) 
-LDFLAGS  += --offload-arch=$(GPU_ARCH)
+#CXXFLAGS += --offload-arch=$(GPU_ARCH) 
+#LDFLAGS  += --offload-arch=$(GPU_ARCH) 
+CXXFLAGS += -fopenmp-targets=nvptx64-nvidia-cuda,x86_64-unknown-linux-gnu -Xopenmp-target=nvptx64-nvidia-cuda -march=$(GPU_ARCH) 
+#LDFLAGS  += -fopenmp-targets=nvptx64-nvidia-cuda,x86_64-unknown-linux-gnu -Xopenmp-target=nvptx64-nvidia-cuda -march=$(GPU_ARCH) -Xoffload-linker x86_64-unknown-linux-gnu=-fuse-ld=lld 
+LDFLAGS  += -fopenmp-targets=nvptx64-nvidia-cuda,x86_64-unknown-linux-gnu -Xopenmp-target=nvptx64-nvidia-cuda -march=$(GPU_ARCH)  
 else
 CXXFLAGS += -fopenmp-targets=x86_64-pc-linux-gnu
 LDFLAGS  += -fopenmp-targets=x86_64-pc-linux-gnu
@@ -31,7 +37,7 @@ INC        = -I../core
 INC_EXT    =
 
 # Location of the libraries.
-LIB        = -L../core -lcore_s
+LIB        = -L../core -lcore_s   -L$(CUDA_HOME)/lib64/stubs -lcuda
 LIB_EXT    =
 
 INC := $(INC) $(INC_EXT)
@@ -41,7 +47,7 @@ CXXFLAGS += $(INC)
 
 include ../core/make_blas.mk
 
-TARGET = main main_buffer main_gpu
+TARGET = main_gpu
 all: $(TARGET)
 
 .PRECIOUS: %.cc %.o
@@ -59,10 +65,10 @@ main_buffer: main_buffer.o
 	$(CXX) $^ $(LIB) $(LDFLAGS) -o $@
 
 main_gpu.o: main_gpu.cc ../core/timer.h
-	$(CXX) -c $(CXXFLAGS) $<
+	$(CXX) -v -c $(CXXFLAGS) $< 
 
 main_gpu: main_gpu.o
-	$(CXX) $^ $(LIB) $(LDFLAGS) -o $@
+	$(CXX) -v $^ $(LIB) $(LDFLAGS) -o $@
 
 clean:
 	rm -f *.o

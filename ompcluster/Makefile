@@ -25,7 +25,7 @@ INC        = -I../core
 INC_EXT    = 
 
 # Location of the libraries.
-LIB        = -L../core -lcore_s
+LIB        = -L../core -lcore_s  -L$CUDA_HOME/lib64/stubs -lcuda
 LIB_EXT    = 
 
 INC := $(INC) $(INC_EXT)

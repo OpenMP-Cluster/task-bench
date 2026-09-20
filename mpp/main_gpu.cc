@@ -34,6 +34,16 @@ struct task_args_t {
   int y;
 };
 
+typedef int kmp_int32;
+struct ident_t;
+extern "C"{
+kmp_int32 __kmpc_start_record_task(ident_t *loc, kmp_int32 gtid,
+                                            kmp_int32 input_flags,
+                                            kmp_int32 tdg_id);
+void __kmpc_end_record_task(ident_t *loc, kmp_int32 gtid,
+                                            kmp_int32 input_flags, kmp_int32 tdg_id);
+}
+
 /*
 Structure to store the information of a task
   output_buff: Stores the output information of the task when it finishes being executed.
@@ -141,6 +151,12 @@ int main(int argc, char ** argv)
 
   int num_devices = omp_get_num_devices();
 
+  // Setting up the number of iteration of the taskgraph, default : 5
+  int loop_number = 5;
+  if(char *env_str = std::getenv("OMPCLUSTER_TASKBENCH_ITERATION_NUMBER")) {
+    loop_number = std::stoi(env_str);
+  }
+  
   // Create the Task Graphs and the information of each task
   matrix_t *matrix = (matrix_t *)malloc(sizeof(matrix_t) * graphs.size());
 
@@ -202,6 +218,10 @@ int main(int argc, char ** argv)
   #pragma omp parallel num_threads(num_devices+1)
   #pragma omp master
   {
+  for(int loop = 0 ; loop < loop_number ; loop ++) {
+    double start_loop = omp_get_wtime();
+    int res = __kmpc_start_record_task(nullptr, 0, 0,0);
+    if(res){
     for (unsigned graph_idx = 0; graph_idx < graphs.size(); graph_idx++) {
       const TaskGraph &graph = graphs[graph_idx];
       tile_t *mat = matrix[graph_idx].data;
@@ -273,7 +293,7 @@ int main(int argc, char ** argv)
               #pragma omp target teams num_teams(num_blocks) thread_limit(block_size)\
                 depend(depobj: tile_in0->dep) \
                 is_device_ptr(output_ptr) \
-                device(device_id) nowait
+                nowait
               {
                 task_execute_gpu(iter, (double *)output_ptr, N, block_size, num_blocks);
               }
@@ -294,8 +314,6 @@ int main(int argc, char ** argv)
 
               omp_depend_t deps0[2] = {tile_in1->dep, *dep0};
 
-              omp_target_memcpy_async(input_ptr0, input_ptr_in0, output_size, 0, 0, device_id, tile_in1->device_id, 2, deps0);
-
               #pragma omp depobj(*dep0) update(in)
 
               // Pragma to send the task a node to execute it
@@ -303,7 +321,7 @@ int main(int argc, char ** argv)
                       depend(depobj: *dep0) \
                       depend(depobj: tile_in0->dep) \
                       is_device_ptr(output_ptr, input_ptr0) \
-                      device(device_id) nowait
+                      nowait
               task_execute_gpu(iter, (double *)output_ptr, N, block_size, num_blocks);
 
               break;
@@ -333,9 +351,6 @@ int main(int argc, char ** argv)
 
               omp_depend_t deps0[2] = {tile_in1->dep, *dep0}, deps1[2] = {tile_in2->dep, *dep1};
 
-              omp_target_memcpy_async(input_ptr0, input_ptr_in0, output_size, 0, 0, device_id, tile_in1->device_id, 2, deps0);
-              omp_target_memcpy_async(input_ptr1, input_ptr_in1, output_size, 0, 0, device_id, tile_in2->device_id, 2, deps1);
-
               #pragma omp depobj(*dep0) update(in)
               #pragma omp depobj(*dep1) update(in)
 
@@ -343,7 +358,7 @@ int main(int argc, char ** argv)
                       depend(depobj: tile_in0->dep) \
                       depend(depobj: *dep0, *dep1) \
                       is_device_ptr(output_ptr, input_ptr0, input_ptr1) \
-                      device(device_id) nowait                
+                      nowait                
               task_execute_gpu(iter, (double *)output_ptr, N, block_size, num_blocks);
 
               break;
@@ -380,10 +395,6 @@ int main(int argc, char ** argv)
 
               omp_depend_t deps0[2] = {tile_in1->dep, *dep0}, deps1[2] = {tile_in2->dep, *dep1}, deps2[2] = {tile_in3->dep, *dep2};
 
-              omp_target_memcpy_async(input_ptr0, input_ptr_in0, output_size, 0, 0, device_id, tile_in1->device_id, 2, deps0);
-              omp_target_memcpy_async(input_ptr1, input_ptr_in1, output_size, 0, 0, device_id, tile_in2->device_id, 2, deps1);
-              omp_target_memcpy_async(input_ptr2, input_ptr_in2, output_size, 0, 0, device_id, tile_in3->device_id, 2, deps2);
-
               #pragma omp depobj(*dep0) update(in)
               #pragma omp depobj(*dep1) update(in)
               #pragma omp depobj(*dep2) update(in)
@@ -391,8 +402,7 @@ int main(int argc, char ** argv)
               #pragma omp target teams num_teams(num_blocks) thread_limit(block_size) nowait \
                       depend(depobj: *dep0, *dep1, *dep2) \
                       depend(depobj: tile_in0->dep) \
-                      is_device_ptr(output_ptr, input_ptr0, input_ptr1, input_ptr2) \
-                      device(device_id)           
+                      is_device_ptr(output_ptr, input_ptr0, input_ptr1, input_ptr2)           
               task_execute_gpu(iter, (double *)output_ptr, N, block_size, num_blocks);
 
               break;
@@ -437,11 +447,6 @@ int main(int argc, char ** argv)
               omp_depend_t deps0[2] = {tile_in1->dep, *dep0}, deps1[2] = {tile_in2->dep, *dep1};
               omp_depend_t deps2[2] = {tile_in3->dep, *dep2}, deps3[2] = {tile_in4->dep, *dep3};
 
-              omp_target_memcpy_async(input_ptr0, input_ptr_in0, output_size, 0, 0, device_id, tile_in1->device_id, 2, deps0);
-              omp_target_memcpy_async(input_ptr1, input_ptr_in1, output_size, 0, 0, device_id, tile_in2->device_id, 2, deps1);
-              omp_target_memcpy_async(input_ptr2, input_ptr_in2, output_size, 0, 0, device_id, tile_in3->device_id, 2, deps2);
-              omp_target_memcpy_async(input_ptr3, input_ptr_in3, output_size, 0, 0, device_id, tile_in4->device_id, 2, deps3);
-
               #pragma omp depobj(*dep0) update(in)
               #pragma omp depobj(*dep1) update(in)
               #pragma omp depobj(*dep2) update(in)
@@ -450,8 +455,7 @@ int main(int argc, char ** argv)
               #pragma omp target teams num_teams(num_blocks) thread_limit(block_size) nowait \
                       depend(depobj: tile_in0->dep) \
                       depend(depobj: *dep0, *dep1, *dep2, *dep3) \
-                      is_device_ptr(output_ptr, input_ptr0, input_ptr1, input_ptr2, input_ptr3) \
-                      device(device_id)
+                      is_device_ptr(output_ptr, input_ptr0, input_ptr1, input_ptr2, input_ptr3)
               task_execute_gpu(iter, (double *)output_ptr, N, block_size, num_blocks);
 
               break;
@@ -504,12 +508,6 @@ int main(int argc, char ** argv)
               omp_depend_t deps2[2] = {tile_in3->dep, *dep2}, deps3[2] = {tile_in4->dep, *dep3};
               omp_depend_t deps4[2] = {tile_in5->dep, *dep4};
 
-              omp_target_memcpy_async(input_ptr0, input_ptr_in0, output_size, 0, 0, device_id, tile_in1->device_id, 2, deps0);
-              omp_target_memcpy_async(input_ptr1, input_ptr_in1, output_size, 0, 0, device_id, tile_in2->device_id, 2, deps1);
-              omp_target_memcpy_async(input_ptr2, input_ptr_in2, output_size, 0, 0, device_id, tile_in3->device_id, 2, deps2);
-              omp_target_memcpy_async(input_ptr3, input_ptr_in3, output_size, 0, 0, device_id, tile_in4->device_id, 2, deps3);
-              omp_target_memcpy_async(input_ptr4, input_ptr_in4, output_size, 0, 0, device_id, tile_in5->device_id, 2, deps4);
-
               #pragma omp depobj(*dep0) update(in)
               #pragma omp depobj(*dep1) update(in)
               #pragma omp depobj(*dep2) update(in)
@@ -519,8 +517,7 @@ int main(int argc, char ** argv)
               #pragma omp target teams num_teams(num_blocks) thread_limit(block_size) nowait \
                       depend(depobj: tile_in0->dep) \
                       depend(depobj: *dep0, *dep1, *dep2, *dep3, *dep4) \
-                      is_device_ptr(output_ptr, input_ptr0, input_ptr1, input_ptr2, input_ptr3, input_ptr4) \
-                      device(device_id)
+                      is_device_ptr(output_ptr, input_ptr0, input_ptr1, input_ptr2, input_ptr3, input_ptr4)
               task_execute_gpu(iter, (double *)output_ptr, N, block_size, num_blocks);
 
               break;
@@ -580,13 +577,6 @@ int main(int argc, char ** argv)
               omp_depend_t deps2[2] = {tile_in3->dep, *dep2}, deps3[2] = {tile_in4->dep, *dep3};
               omp_depend_t deps4[2] = {tile_in5->dep, *dep4}, deps5[2] = {tile_in6->dep, *dep5};
 
-              omp_target_memcpy_async(input_ptr0, input_ptr_in0, output_size, 0, 0, device_id, tile_in1->device_id, 2, deps0);
-              omp_target_memcpy_async(input_ptr1, input_ptr_in1, output_size, 0, 0, device_id, tile_in2->device_id, 2, deps1);
-              omp_target_memcpy_async(input_ptr2, input_ptr_in2, output_size, 0, 0, device_id, tile_in3->device_id, 2, deps2);
-              omp_target_memcpy_async(input_ptr3, input_ptr_in3, output_size, 0, 0, device_id, tile_in4->device_id, 2, deps3);
-              omp_target_memcpy_async(input_ptr4, input_ptr_in4, output_size, 0, 0, device_id, tile_in5->device_id, 2, deps4);
-              omp_target_memcpy_async(input_ptr5, input_ptr_in5, output_size, 0, 0, device_id, tile_in6->device_id, 2, deps5);
-
               #pragma omp depobj(*dep0) update(in)
               #pragma omp depobj(*dep1) update(in)
               #pragma omp depobj(*dep2) update(in)
@@ -597,8 +587,7 @@ int main(int argc, char ** argv)
               #pragma omp target teams num_teams(num_blocks) thread_limit(block_size) nowait \
                       depend(depobj: tile_in0->dep) \
                       depend(depobj: *dep0, *dep1, *dep2, *dep3, *dep4, *dep5) \
-                      is_device_ptr(output_ptr, input_ptr0, input_ptr1, input_ptr2, input_ptr3, input_ptr4, input_ptr5) \
-                      device(device_id)
+                      is_device_ptr(output_ptr, input_ptr0, input_ptr1, input_ptr2, input_ptr3, input_ptr4, input_ptr5)
               task_execute_gpu(iter, (double *)output_ptr, N, block_size, num_blocks);
     
               break;
@@ -666,14 +655,6 @@ int main(int argc, char ** argv)
               omp_depend_t deps4[2] = {tile_in5->dep, *dep4}, deps5[2] = {tile_in6->dep, *dep5};
               omp_depend_t deps6[2] = {tile_in7->dep, *dep6};
 
-              omp_target_memcpy_async(input_ptr0, input_ptr_in0, output_size, 0, 0, device_id, tile_in1->device_id, 2, deps0);
-              omp_target_memcpy_async(input_ptr1, input_ptr_in1, output_size, 0, 0, device_id, tile_in2->device_id, 2, deps1);
-              omp_target_memcpy_async(input_ptr2, input_ptr_in2, output_size, 0, 0, device_id, tile_in3->device_id, 2, deps2);
-              omp_target_memcpy_async(input_ptr3, input_ptr_in3, output_size, 0, 0, device_id, tile_in4->device_id, 2, deps3);
-              omp_target_memcpy_async(input_ptr4, input_ptr_in4, output_size, 0, 0, device_id, tile_in5->device_id, 2, deps4);
-              omp_target_memcpy_async(input_ptr5, input_ptr_in5, output_size, 0, 0, device_id, tile_in6->device_id, 2, deps5);
-              omp_target_memcpy_async(input_ptr6, input_ptr_in6, output_size, 0, 0, device_id, tile_in7->device_id, 2, deps6);
-
               #pragma omp depobj(*dep0) update(in)
               #pragma omp depobj(*dep1) update(in)
               #pragma omp depobj(*dep2) update(in)
@@ -685,8 +666,7 @@ int main(int argc, char ** argv)
               #pragma omp target teams num_teams(num_blocks) thread_limit(block_size) nowait \
                       depend(depobj: tile_in0->dep) \
                       depend(depobj: *dep0, *dep1, *dep2, *dep3, *dep4, *dep5, *dep6) \
-                      is_device_ptr(output_ptr, input_ptr0, input_ptr1, input_ptr2, input_ptr3, input_ptr4, input_ptr5, input_ptr6) \
-                      device(device_id)     
+                      is_device_ptr(output_ptr, input_ptr0, input_ptr1, input_ptr2, input_ptr3, input_ptr4, input_ptr5, input_ptr6)
               task_execute_gpu(iter, (double *)output_ptr, N, block_size, num_blocks);
 
               break;
@@ -761,15 +741,6 @@ int main(int argc, char ** argv)
               omp_depend_t deps4[2] = {tile_in5->dep, *dep4}, deps5[2] = {tile_in6->dep, *dep5};
               omp_depend_t deps6[2] = {tile_in7->dep, *dep6}, deps7[2] = {tile_in8->dep, *dep7};
 
-              omp_target_memcpy_async(input_ptr0, input_ptr_in0, output_size, 0, 0, device_id, tile_in1->device_id, 2, deps0);
-              omp_target_memcpy_async(input_ptr1, input_ptr_in1, output_size, 0, 0, device_id, tile_in2->device_id, 2, deps1);
-              omp_target_memcpy_async(input_ptr2, input_ptr_in2, output_size, 0, 0, device_id, tile_in3->device_id, 2, deps2);
-              omp_target_memcpy_async(input_ptr3, input_ptr_in3, output_size, 0, 0, device_id, tile_in4->device_id, 2, deps3);
-              omp_target_memcpy_async(input_ptr4, input_ptr_in4, output_size, 0, 0, device_id, tile_in5->device_id, 2, deps4);
-              omp_target_memcpy_async(input_ptr5, input_ptr_in5, output_size, 0, 0, device_id, tile_in6->device_id, 2, deps5);
-              omp_target_memcpy_async(input_ptr6, input_ptr_in6, output_size, 0, 0, device_id, tile_in7->device_id, 2, deps6);
-              omp_target_memcpy_async(input_ptr7, input_ptr_in7, output_size, 0, 0, device_id, tile_in8->device_id, 2, deps7);
-
               #pragma omp depobj(*dep0) update(in)
               #pragma omp depobj(*dep1) update(in)
               #pragma omp depobj(*dep2) update(in)
@@ -782,8 +753,7 @@ int main(int argc, char ** argv)
               #pragma omp target teams num_teams(num_blocks) thread_limit(block_size) nowait \
                       depend(depobj: tile_in0->dep) \
                       depend(depobj: *dep0, *dep1, *dep2, *dep3, *dep4, *dep5, *dep6, *dep7) \
-                      is_device_ptr(output_ptr, input_ptr0, input_ptr1, input_ptr2, input_ptr3, input_ptr4, input_ptr5, input_ptr6, input_ptr7) \
-                      device(device_id)    
+                      is_device_ptr(output_ptr, input_ptr0, input_ptr1, input_ptr2, input_ptr3, input_ptr4, input_ptr5, input_ptr6, input_ptr7)
               task_execute_gpu(iter, (double *)output_ptr, N, block_size, num_blocks);
 
               break;
@@ -866,16 +836,6 @@ int main(int argc, char ** argv)
               omp_depend_t deps6[2] = {tile_in7->dep, *dep6}, deps7[2] = {tile_in8->dep, *dep7};
               omp_depend_t deps8[2] = {tile_in9->dep, *dep8};
 
-              omp_target_memcpy_async(input_ptr0, input_ptr_in0, output_size, 0, 0, device_id, tile_in1->device_id, 2, deps0);
-              omp_target_memcpy_async(input_ptr1, input_ptr_in1, output_size, 0, 0, device_id, tile_in2->device_id, 2, deps1);
-              omp_target_memcpy_async(input_ptr2, input_ptr_in2, output_size, 0, 0, device_id, tile_in3->device_id, 2, deps2);
-              omp_target_memcpy_async(input_ptr3, input_ptr_in3, output_size, 0, 0, device_id, tile_in4->device_id, 2, deps3);
-              omp_target_memcpy_async(input_ptr4, input_ptr_in4, output_size, 0, 0, device_id, tile_in5->device_id, 2, deps4);
-              omp_target_memcpy_async(input_ptr5, input_ptr_in5, output_size, 0, 0, device_id, tile_in6->device_id, 2, deps5);
-              omp_target_memcpy_async(input_ptr6, input_ptr_in6, output_size, 0, 0, device_id, tile_in7->device_id, 2, deps6);
-              omp_target_memcpy_async(input_ptr7, input_ptr_in7, output_size, 0, 0, device_id, tile_in8->device_id, 2, deps7);
-              omp_target_memcpy_async(input_ptr8, input_ptr_in8, output_size, 0, 0, device_id, tile_in9->device_id, 2, deps8);
-
               #pragma omp depobj(*dep0) update(in)
               #pragma omp depobj(*dep1) update(in)
               #pragma omp depobj(*dep2) update(in)
@@ -889,8 +849,7 @@ int main(int argc, char ** argv)
               #pragma omp target teams num_teams(num_blocks) thread_limit(block_size) nowait \
                       depend(depobj: tile_in0->dep) \
                       depend(depobj: *dep0, *dep1, *dep2, *dep3, *dep4, *dep5, *dep6, *dep7, *dep8) \
-                      is_device_ptr(output_ptr, input_ptr0, input_ptr1, input_ptr2, input_ptr3, input_ptr4, input_ptr5, input_ptr6, input_ptr7, input_ptr8) \
-                      device(device_id)
+                      is_device_ptr(output_ptr, input_ptr0, input_ptr1, input_ptr2, input_ptr3, input_ptr4, input_ptr5, input_ptr6, input_ptr7, input_ptr8)
               task_execute_gpu(iter, (double *)output_ptr, N, block_size, num_blocks);
 
               break;
@@ -900,6 +859,12 @@ int main(int argc, char ** argv)
           }
         }
       }
+    }
+    }
+  __kmpc_end_record_task(nullptr,0,0,0);
+  double end_loop = omp_get_wtime();
+  double elapsed_loop = end_loop - start_loop;
+  printf("Loop %d : Elapsed time : %f\n",loop, elapsed_loop);
     }
   }
 
