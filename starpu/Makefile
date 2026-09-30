@@ -1,6 +1,6 @@
-ifndef STARPU_DIR
-$(error STARPU_DIR variable is not defined, aborting build)
-endif
+# ifndef STARPU_DIR
+# $(error STARPU_DIR variable is not defined, aborting build)
+# endif
 
 DEBUG ?= 0
 
@@ -9,9 +9,9 @@ CC         = mpic++
 CFLAGS     = -DADD_ -fPIC -std=c++11
 LDFLAGS    = -Wall -std=c++11
 
-STARPU_VERSION ?= 1.3
+STARPU_VERSION ?= 1.4
 
-#STARPU_DIR = /home/wwu12/starpu/install
+STARPU_DIR ?= /opt/starpu
 #MPI_DIR    = /sw/openmpi/2.1.1
 
 ifeq ($(strip $(DEBUG)),0)
@@ -21,6 +21,19 @@ else
 CFLAGS		 += -g -O0
 LDFLAGS		 += -g -O0
 endif
+
+GPU_ARCH   ?= gfx90a
+USE_STARPU_GPU ?= 1
+
+ifeq ($(strip $(USE_STARPU_GPU)),1)
+GPU_CFLAGS  = -fopenmp -foffload-lto --offload-arch=$(GPU_ARCH)
+GPU_LDFLAGS = -fopenmp -foffload-lto --offload-arch=$(GPU_ARCH)
+else
+GPU_CFLAGS  = -fopenmp -foffload-lto -fopenmp-targets=x86_64-pc-linux-gnu
+GPU_LDFLAGS = -fopenmp -foffload-lto -fopenmp-targets=x86_64-pc-linux-gnu
+endif
+
+CXX_GPU = clang++
 
 # Include directories
 INC        = -I$(STARPU_DIR)/include/starpu/$(STARPU_VERSION) -I../core
@@ -72,6 +85,12 @@ main_static.o: main_static.cc
 
 main_static: main_static.o data.o
 	$(CC) $^ $(LIB) $(LDFLAGS) -o $@
+
+main_gpu.o: main_gpu.cc
+	$(CXX_GPU) -c $(CFLAGS) -D__HIP_PLATFORM_AMD__=1 -D__HIP_PLATFORM_HCC__=1 -I/opt/rocm/include $(GPU_CFLAGS) $<
+
+main_gpu: main_gpu.o data.o
+	$(CXX_GPU) $^ $(LIB) $(GPU_LDFLAGS) -D__HIP_PLATFORM_AMD__=1 -D__HIP_PLATFORM_HCC__=1 -L/usr/local/mpich/lib/ -I/opt/rocm/include $(LDFLAGS) -lamdhip64 -lmpi -o $@
 
 clean:
 	rm -f *.o
