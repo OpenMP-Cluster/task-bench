@@ -21,7 +21,7 @@ LDFLAGS  += -O3
 endif
 
 # Include directories
-INC        = -I../core 
+INC        = -I../core -I$(OMPC_RUNTIMES_BUILD)/openmp/runtime/src
 INC_EXT    = 
 
 # Location of the libraries.
