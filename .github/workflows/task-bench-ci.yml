@@ -67,6 +67,9 @@ jobs:
           export LIBOMP_NUM_HIDDEN_HELPER_THREADS=4
           export OMPCLUSTER_NUM_EXEC_EVENT_HANDLERS=2
           export UCX_TLS=self,sysv,tcp
+          export LIBOMPTARGET_DEBUG=1
+          export LIBOMPTARGET_INFO=-1
+          export OMP_TARGET_OFFLOAD=MANDATORY
 
           timeout 60s mpirun -np 2 llvm-offload-mpi-proxy-device : -np 1 ./ompcluster/main -steps 4 -width 4 -type trivial -kernel compute_bound -iter 1000 2>&1 | tee dmdas-tdg.log
           grep -q 'Elapsed Time' dmdas-tdg.log
