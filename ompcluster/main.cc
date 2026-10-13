@@ -26,6 +26,14 @@ extern "C"{
  void __kmpc_end_record_task(ident_t *loc, kmp_int32 gtid,
                                        kmp_int32 input_flags, kmp_int32 tdg_id);
 }
+extern "C"
+void __kmpc_dmdas_add_next_task_perf_feature(int kind, double value);
+
+enum {
+    KMP_STARPU_FEATURE_DATA_BYTES = 0,
+    KMP_STARPU_FEATURE_ITERATIONS = 1
+};
+
 #define MAX_NUM_ARGS 10
 
 /*
@@ -210,6 +218,14 @@ int main(int argc, char ** argv)
           // Get the pointer to the task output data
           tile_t *tile_in0 = &mat[point0];
           char *output_ptr = (char*)tile_in0->output_buff;
+
+          __kmpc_dmdas_add_next_task_perf_feature(
+              KMP_STARPU_FEATURE_ITERATIONS,
+              static_cast<double>(graph.kernel.iterations));
+
+          __kmpc_dmdas_add_next_task_perf_feature(
+              KMP_STARPU_FEATURE_DATA_BYTES,
+              static_cast<double>(graph.output_bytes_per_task));
 
           // Depending on the number of dependencies
           switch(num_args)

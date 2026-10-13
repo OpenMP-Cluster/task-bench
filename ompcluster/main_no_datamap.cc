@@ -16,6 +16,20 @@
 #include "core.h"
 #include "timer.h"
 
+
+extern "C"
+void __kmpc_dmdas_add_next_task_perf_feature(
+    int kind,
+    double value);
+
+extern "C"
+void __kmpc_dmdas_save_perf_model();
+
+enum {
+    KMP_STARPU_FEATURE_DATA_BYTES = 0,
+    KMP_STARPU_FEATURE_ITERATIONS = 1
+};
+
 #define MAX_NUM_ARGS 10
 
 /*
@@ -171,6 +185,16 @@ int main(int argc, char ** argv)
           // Get the pointer to the task output data
           tile_t *tile_in0 = &mat[point0];
           char *output_ptr = (char*)tile_in0->output_buff;
+
+          __kmpc_dmdas_add_next_task_perf_feature(
+              KMP_STARPU_FEATURE_ITERATIONS,
+              static_cast<double>(
+                  graph.kernel.iterations));
+
+          __kmpc_dmdas_add_next_task_perf_feature(
+              KMP_STARPU_FEATURE_DATA_BYTES,
+              static_cast<double>(
+                  graph.output_bytes_per_task));
 
           // Depending on the number of dependencies
           switch(num_args)
@@ -602,6 +626,8 @@ int main(int argc, char ** argv)
       }
     }
   }
+
+  __kmpc_dmdas_save_perf_model();
 
   double end = omp_get_wtime();
   double elapsed = end -start;

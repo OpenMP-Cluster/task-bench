@@ -1,0 +1,56 @@
+name: TaskBench CI (OMPC CPU)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ci-scheduling-tests]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build TaskBench CPU
+    runs-on: [self-hosted, ompc-ci]
+    timeout-minutes: 120
+
+    container:
+      image: docker.io/orenaud809/ompc:cuda-ompc
+
+    env:
+      DEFAULT_FEATURES: "0"
+      USE_OMPCLUSTER: "1"
+      USE_MPI_OPENMP: "0"
+      CUDA: "0"
+      CC: clang
+      CXX: clang++
+      THREADS: "4"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify OMPC toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          clang++ --version
+          mpicxx -show
+          test -f "$OMPC_RUNTIMES_BUILD/openmp/runtime/src/libomp.so"
+
+      - name: Build TaskBench core
+        shell: bash
+        run: make -C core -j4 CC=clang CXX=clang++
+
+      - name: Build TaskBench OMPC
+        shell: bash
+        run: make -C ompcluster -j4 CXX=clang++ CUDA=0
+
+      - name: Verify binaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -x ompcluster/main
+          test -x ompcluster/main_no_datamap
+          test -x ompcluster/main_multidevice

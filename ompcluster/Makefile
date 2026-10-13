@@ -25,7 +25,10 @@ INC        = -I../core
 INC_EXT    = 
 
 # Location of the libraries.
-LIB        = -L../core -lcore_s  -L$CUDA_HOME/lib64/stubs -lcuda
+LIB        = -L../core -lcore_s
+ifeq ($(strip $(CUDA)),1)
+LIB       += -L$(CUDA_HOME)/lib64/stubs -lcuda
+endif
 LIB_EXT    = 
 
 INC := $(INC) $(INC_EXT)
@@ -35,22 +38,22 @@ CXXFLAGS += $(INC)
 
 include ../core/make_blas.mk
 
-TARGET = main_multidevice
+TARGET = main main_no_datamap main_multidevice
 all: $(TARGET)
 
 .PRECIOUS: %.cc %.o
 
-#main.o: main.cc ../core/timer.h
-#	$(CXX) -c $(CXXFLAGS) $<
+main.o: main.cc ../core/timer.h
+	$(CXX) -c $(CXXFLAGS) $<
 
-#main: main.o
-#	$(CXX) $^ $(LIB) $(LDFLAGS) -o $@
+main: main.o
+	$(CXX) $^ $(LIB) $(LDFLAGS) -o $@
 
-#main_no_datamap.o: main_no_datamap.cc ../core/timer.h
-#	$(CXX) -c $(CXXFLAGS) $<
+main_no_datamap.o: main_no_datamap.cc ../core/timer.h
+	$(CXX) -c $(CXXFLAGS) $<
 
-#main_no_datamap: main_no_datamap.o
-#	$(CXX) $^ $(LIB) $(LDFLAGS) -o $@
+main_no_datamap: main_no_datamap.o
+	$(CXX) $^ $(LIB) $(LDFLAGS) -o $@
 
 main_multidevice.o: main_multidevice.cc ../core/timer.h
 	$(CXX) -c $(CXXFLAGS) $<
