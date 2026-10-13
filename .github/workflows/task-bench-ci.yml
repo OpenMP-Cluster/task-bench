@@ -75,6 +75,7 @@ jobs:
           grep -q 'Elapsed Time' dmdas-tdg.log
 
       - name: Smoke test DMDAS no TDG
+        if: ${{ success() || failure() }}
         shell: bash
         run: |
           set -euo pipefail
@@ -94,6 +95,7 @@ jobs:
           grep -q 'Elapsed Time' dmdas-no-tdg.log
 
       - name: Smoke test Legacy HEFT TDG
+        if: ${{ success() || failure() }}
         shell: bash
         run: |
           set -euo pipefail
@@ -113,6 +115,7 @@ jobs:
           grep -q 'Elapsed Time' legacy-heft-tdg.log
 
       - name: Smoke test Legacy HEFT no TDG
+        if: ${{ success() || failure() }}
         shell: bash
         run: |
           set -euo pipefail
@@ -132,6 +135,7 @@ jobs:
           grep -q 'Elapsed Time' legacy-heft-no-tdg.log
 
       - name: Smoke test HEFT TDG
+        if: ${{ success() || failure() }}
         shell: bash
         run: |
           set -euo pipefail
