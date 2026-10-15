@@ -43,6 +43,14 @@ jobs:
         shell: bash
         run: make -C core -j4 CC=clang CXX=clang++
 
+      - name: Identify container libomp
+        shell: bash
+        run: |
+          echo "=== Container libomp ==="
+          find "$OMPC_RUNTIMES_BUILD" -name libomp.so -exec sha256sum {} \;
+          echo "=== MPI proxy ==="
+          command -v llvm-offload-mpi-proxy-device
+
       - name: Build TaskBench OMPC
         shell: bash
         run: make -C ompcluster -j4 CXX=clang++ CUDA=0
