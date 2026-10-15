@@ -48,6 +48,8 @@ jobs:
         run: |
           echo "=== Container libomp ==="
           find "$OMPC_RUNTIMES_BUILD" -name libomp.so -exec sha256sum {} \;
+          echo "=== Container GLIBC ==="
+          ldd --version | head -n 1
           echo "=== MPI proxy ==="
           command -v llvm-offload-mpi-proxy-device
 
