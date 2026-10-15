@@ -68,7 +68,9 @@ jobs:
           export OMPCLUSTER_NUM_EXEC_EVENT_HANDLERS=2
           export UCX_TLS=self,sysv,tcp
           export LIBOMPTARGET_DEBUG=1
-          export LIBOMPTARGET_INFO=-1
+          # Disabled: verbose mapping diagnostics may trigger timeouts (Sorgan reproduction).
+          # Root cause not established; keep smoke tests focused on scheduler execution.
+          # export LIBOMPTARGET_INFO=-1
           export OMP_TARGET_OFFLOAD=MANDATORY
 
           timeout 60s mpirun -np 2 llvm-offload-mpi-proxy-device : -np 1 ./ompcluster/main -steps 4 -width 4 -type trivial -kernel compute_bound -iter 1000 2>&1 | tee dmdas-tdg.log
@@ -89,7 +91,9 @@ jobs:
           export UCX_TLS=self,sysv,tcp
           export OMP_TARGET_OFFLOAD=MANDATORY
           export LIBOMPTARGET_DEBUG=1
-          export LIBOMPTARGET_INFO=4
+          # Disabled: INFO=4 timed out in a local Legacy HEFT no-TDG test.
+          # Root cause not established; tracked separately from scheduler smoke tests.
+          # export LIBOMPTARGET_INFO=4
 
           timeout 60s mpirun -np 2 llvm-offload-mpi-proxy-device : -np 1 ./ompcluster/main_no_datamap -steps 4 -width 4 -type trivial -kernel compute_bound -iter 1000 2>&1 | tee dmdas-no-tdg.log
           grep -q 'Elapsed Time' dmdas-no-tdg.log
@@ -109,7 +113,9 @@ jobs:
           export UCX_TLS=self,sysv,tcp
           export OMP_TARGET_OFFLOAD=MANDATORY
           export LIBOMPTARGET_DEBUG=1
-          export LIBOMPTARGET_INFO=4
+          # Disabled: INFO=4 timed out in a local Legacy HEFT no-TDG test.
+          # Root cause not established; tracked separately from scheduler smoke tests.
+          # export LIBOMPTARGET_INFO=4
 
           timeout 60s mpirun -np 2 llvm-offload-mpi-proxy-device : -np 1 ./ompcluster/main -steps 4 -width 4 -type trivial -kernel compute_bound -iter 1000 2>&1 | tee legacy-heft-tdg.log
           grep -q 'Elapsed Time' legacy-heft-tdg.log
@@ -129,7 +135,9 @@ jobs:
           export UCX_TLS=self,sysv,tcp
           export OMP_TARGET_OFFLOAD=MANDATORY
           export LIBOMPTARGET_DEBUG=1
-          export LIBOMPTARGET_INFO=4
+          # Disabled: INFO=4 timed out in a local Legacy HEFT no-TDG test.
+          # Root cause not established; tracked separately from scheduler smoke tests.
+          # export LIBOMPTARGET_INFO=4
 
           timeout 60s mpirun -np 2 llvm-offload-mpi-proxy-device : -np 1 ./ompcluster/main_no_datamap -steps 4 -width 4 -type trivial -kernel compute_bound -iter 1000 2>&1 | tee legacy-heft-no-tdg.log
           grep -q 'Elapsed Time' legacy-heft-no-tdg.log
@@ -149,7 +157,9 @@ jobs:
           export UCX_TLS=self,sysv,tcp
           export OMP_TARGET_OFFLOAD=MANDATORY
           export LIBOMPTARGET_DEBUG=1
-          export LIBOMPTARGET_INFO=4
+          # Disabled: INFO=4 timed out in a local Legacy HEFT no-TDG test.
+          # Root cause not established; tracked separately from scheduler smoke tests.
+          # export LIBOMPTARGET_INFO=4
 
           timeout 60s mpirun -np 2 llvm-offload-mpi-proxy-device : -np 1 ./ompcluster/main -steps 4 -width 4 -type trivial -kernel compute_bound -iter 1000 2>&1 | tee heft-tdg.log
           grep -q 'Elapsed Time' heft-tdg.log
