@@ -154,6 +154,7 @@ int main(int argc, char ** argv)
     #pragma omp target enter data nowait                                       \
         map(to: graphs_array[:graphs.size()])                                  \
         depend(out: *graphs_array)
+    #pragma omp taskwait depend(in: *graphs_array)
     
     // Run the task graph in parallel
     for (unsigned graph_idx = 0; graph_idx < graphs.size(); graph_idx++) {
@@ -233,6 +234,8 @@ int main(int argc, char ** argv)
             case 1:
             {
               #pragma omp target nowait                                        \
+                map(to: graphs_array[0:graphs.size()]) \
+                map(tofrom: output_ptr[0:graph_out]) \
                 depend(in: *graphs_array)                                      \
                 depend(inout: *output_ptr)                                     \
                 firstprivate(graph_idx, num_args, x0, y0)
