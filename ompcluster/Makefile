@@ -41,7 +41,7 @@ include ../core/make_blas.mk
 
 TARGET = main main_no_datamap main_multidevice
 ifeq ($(strip $(CUDA)),1)
-TARGET += main_gpu_auto
+TARGET += main_gpu_auto main_taskwait main_taskwait_tdg
 endif
 all: $(TARGET)
 
@@ -69,6 +69,18 @@ main_gpu_auto.o: main_gpu_auto.cc ../core/timer.h
 	$(CXX) -c $(CXXFLAGS) $< -o $@
 
 main_gpu_auto: main_gpu_auto.o
+	$(CXX) $^ $(LIB) $(LDFLAGS) -o $@
+
+main_taskwait.o: main_taskwait.cc
+	$(CXX) -c $(CXXFLAGS) $< -o $@
+
+main_taskwait: main_taskwait.o
+	$(CXX) $^ $(LIB) $(LDFLAGS) -o $@
+
+main_taskwait_tdg.o: main_taskwait_tdg.cc
+	$(CXX) -c $(CXXFLAGS) $< -o $@
+
+main_taskwait_tdg: main_taskwait_tdg.o
 	$(CXX) $^ $(LIB) $(LDFLAGS) -o $@
 
 clean:
